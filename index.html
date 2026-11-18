@@ -57,7 +57,26 @@ async function fetchTimeout(url,ms=12000){const controller=new AbortController()
 const COMMON='https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba';
 function nbaLocalDate(){const p=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const v={};p.forEach(x=>v[x.type]=x.value);return v.year+v.month+v.day}
 function scoreboardUrl(){return API+'/scoreboard?dates='+nbaLocalDate()+'&limit=100'}
-async function fetchScoreboard(){let lastError;for(const url of [scoreboardUrl(),API+'/scoreboard?limit=100']){try{const r=await fetchTimeout(url,18000);if(!r.ok)throw Error('HTTP '+r.status);const data=await r.json();if(!Array.isArray(data.events))throw Error('ESPN nije vratio raspored');return data}catch(e){lastError=e}}throw lastError||Error('Raspored nije dostupan')}
+function normalizeNbaScoreboard(raw){
+ const games=raw?.scoreboard?.games;
+ if(!Array.isArray(games))throw Error('NBA servis nije vratio utakmice');
+ return {events:games.map(g=>{
+  const home=g.homeTeam||{},away=g.awayTeam||{};
+  const date=g.gameTimeUTC||g.gameEt||new Date().toISOString();
+  const status=Number(g.gameStatus||0)===3?'Završeno':Number(g.gameStatus||0)===2?(g.gameStatusText||'U tijeku'):(g.gameStatusText||'Raspored');
+  const team=(t)=>({id:String(t.teamId||''),displayName:[t.teamCity,t.teamName].filter(Boolean).join(' ')||t.teamTricode||'NBA'});
+  return {id:g.gameId,date,competitions:[{status:{type:{shortDetail:status}},competitors:[{homeAway:'away',team:team(away),score:g.awayTeam?.score??'—'},{homeAway:'home',team:team(home),score:g.homeTeam?.score??'—'}]}]};
+ })};
+}
+async function fetchScoreboard(){
+ let lastError;
+ const sources=[
+  async()=>{const r=await fetchTimeout(scoreboardUrl(),15000);if(!r.ok)throw Error('ESPN HTTP '+r.status);const d=await r.json();if(!Array.isArray(d.events))throw Error('ESPN raspored nije dostupan');return d},
+  async()=>{const r=await fetchTimeout('https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json',15000);if(!r.ok)throw Error('NBA HTTP '+r.status);return normalizeNbaScoreboard(await r.json())}
+ ];
+ for(const source of sources){try{return await source()}catch(e){lastError=e}}
+ throw lastError||Error('Raspored nije dostupan');
+}
 let currentEvents=[];let selectedPredictPlayer=null;let injuryData=[];
 function show(id,button){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));button.classList.add('active')}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}

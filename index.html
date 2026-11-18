@@ -84,7 +84,7 @@ async function makePrediction(){const out=document.getElementById('predictionRes
 let dailyLoading=false;
 function readNamedStats(data){
  const out={points:null,rebounds:null,assists:null,threes:null,minutes:null};
- const aliases={points:['avgpoints','pointspergame','ppg','points'],rebounds:['avgrebounds','reboundspergame','rpg','rebounds'],assists:['avgassists','assistspergame','apg','assists'],threes:['avgthreepointfieldgoalsmade','threepointfieldgoalsmade','threepointfieldgoalsmadepergame','3pm','3ptm'],minutes:['avgminutes','minutespergame','mpg','minutes']};
+ const aliases={points:['avgpoints','pointspergame','ppg','points','pts'],rebounds:['avgrebounds','reboundspergame','rpg','rebounds','reb'],assists:['avgassists','assistspergame','apg','assists','ast'],threes:['avgthreepointfieldgoalsmade','threepointfieldgoalsmade','threepointfieldgoalsmadepergame','3pm','3ptm','3p'],minutes:['avgminutes','minutespergame','mpg','minutes','min']};
  function put(name,value){const key=String(name||'').toLowerCase().replace(/[^a-z0-9]/g,'');const n=Number(String(value??'').replace(/[^0-9.-]/g,''));if(!Number.isFinite(n))return;for(const k in aliases){if(out[k]===null&&aliases[k].includes(key))out[k]=n}}
  function walk(x){if(!x||typeof x!=='object')return;if(Array.isArray(x)){x.forEach(walk);return}
   const labels=x.names||x.labels||x.abbreviations||[];

@@ -112,11 +112,27 @@ function rosterAthletes(data){
  }
  walk(data);return arr;
 }
+function dailyProjection(values){
+ const last10=values.slice(0,10),last5=last10.slice(0,5);
+ if(last10.length<3)return null;
+ const avg10=last10.reduce((s,v)=>s+v,0)/last10.length;
+ const avg5=last5.reduce((s,v)=>s+v,0)/last5.length;
+ return {value:avg5*.65+avg10*.35,avg5,avg10,count:last10.length};
+}
+function updateDailyLine(input){
+ const id=input.dataset.playerid, line=input.value===''?null:Number(input.value);
+ const box=document.getElementById('daily-diff-'+id), estimate=Number(input.dataset.projection);
+ if(!box)return;
+ if(line===null||!Number.isFinite(line)){box.textContent='Unesi Premier marginu za usporedbu.';return}
+ const diff=estimate-line;
+ box.innerHTML='Razlika: <b class="'+(diff>=0?'green':'orange')+'">'+(diff>0?'+':'')+diff.toFixed(1)+' poena</b> · '+(diff>=1?'Model naginje OVER':diff<=-1?'Model naginje UNDER':'Bez jasne razlike');
+}
+let dailyLoading=false;
 async function loadDailyPicks(force=false){
  if(dailyLoading)return;dailyLoading=true;
  const target=document.getElementById('dailyPicks'),date=document.getElementById('dailyDate');
- target.innerHTML='<div class="card">Učitavam sastave i statistiku igrača za svaku utakmicu…</div>';
- date.textContent='Datum: '+new Date().toLocaleDateString('hr-HR')+' · podaci ESPN-a';
+ target.innerHTML='<div class="card">Računam prognoze iz zadnjih 10 utakmica igrača…</div>';
+ date.textContent='Datum: '+new Date().toLocaleDateString('hr-HR')+' · projekcija poena, ne karijerni prosjek';
  try{
   let events=currentEvents;
   if(!events.length){const sr=await fetchTimeout(API+'/scoreboard?limit=100');if(!sr.ok)throw Error('schedule');events=(await sr.json()).events||[];currentEvents=events}
@@ -124,22 +140,29 @@ async function loadDailyPicks(force=false){
   const gameTeams=events.map(g=>({game:g,teams:(g.competitions?.[0]?.competitors||[]).map(t=>({id:String(t.team?.id||''),name:t.team?.displayName||t.team?.name||'Ekipa'})).filter(t=>t.id)})).filter(x=>x.teams.length===2);
   const teamMap=new Map();gameTeams.forEach(x=>x.teams.forEach(t=>teamMap.set(t.id,t)));
   const rosterEntries=await Promise.all([...teamMap.values()].map(async t=>{try{const r=await fetchTimeout(API+'/teams/'+t.id+'/roster');if(!r.ok)return [t.id,[]];return [t.id,rosterAthletes(await r.json()).map(a=>({...a,team:t.name,teamId:t.id}))]}catch(e){return [t.id,[]]}}));
-  const rosters=new Map(rosterEntries);
-  const allPlayers=[...new Map(rosterEntries.flatMap(x=>x[1]).map(p=>[p.id,p])).values()];
+  const rosters=new Map(rosterEntries),allPlayers=[...new Map(rosterEntries.flatMap(x=>x[1]).map(p=>[p.id,p])).values()];
   if(!allPlayers.length){target.innerHTML='<div class="card orange">ESPN trenutačno ne vraća sastave igrača. Pokušaj ponovno kasnije.</div>';return}
   const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);
-  const statResults=await Promise.all(allPlayers.map(async p=>{try{const r=await fetchTimeout(COMMON+'/athletes/'+p.id+'/stats?region=us&lang=en&contentorigin=espn&season='+season+'&seasontype=2');if(!r.ok)return null;const s=readNamedStats(await r.json());if(s.points===null&&s.rebounds===null&&s.assists===null)return null;return {...p,...s}}catch(e){return null}}));
-  const byId=new Map(statResults.filter(Boolean).map(p=>[p.id,p]));
+  const projections=await Promise.all(allPlayers.map(async p=>{
+   const injury=injuryData.find(x=>x.name.toLowerCase()===p.name.toLowerCase());
+   if(injury&&isUnavailable(injury))return null;
+   try{const log=await getRecentGames(p.id,season),values=extractRecentMetric(log,'points'),minutes=extractRecentMetric(log,'minutes'),proj=dailyProjection(values);if(!proj)return null;
+    return {...p,projection:proj.value,avg5:proj.avg5,avg10:proj.avg10,games:proj.count,minutes:minutes.length?minutes.slice(0,5).reduce((s,v)=>s+v,0)/Math.min(5,minutes.length):null,injury};
+   }catch(e){return null}
+  }));
+  const byId=new Map(projections.filter(Boolean).map(p=>[p.id,p]));
   const html=gameTeams.map(({game,teams})=>{
    const c=game.competitions?.[0],home=c?.competitors?.find(t=>t.homeAway==='home')||c?.competitors?.[0],away=c?.competitors?.find(t=>t.homeAway==='away')||c?.competitors?.[1];
    const label=(away?.team?.displayName||teams[1].name)+' @ '+(home?.team?.displayName||teams[0].name);
    const players=teams.flatMap(t=>(rosters.get(t.id)||[]).map(p=>byId.get(p.id))).filter(Boolean);
-   const eligible=players.filter(p=>{const injury=injuryData.find(x=>x.name.toLowerCase()===p.name.toLowerCase());const status=injury?String(typeof injury.status==='object'?JSON.stringify(injury.status):injury.status):'';return !/out|inactive/i.test(status)});
-   const ranked=eligible.map(p=>({...p,pts:p.points??0,reb:p.rebounds??0,ast:p.assists??0,score:(p.points??0)+(p.rebounds??0)*1.2+(p.assists??0)*1.5})).filter(p=>p.score>0).sort((a,b)=>b.score-a.score).slice(0,5);
+   const ranked=players.sort((a,b)=>b.projection-a.projection).slice(0,5);
    const status=c?.status?.type?.shortDetail||game.status?.type?.shortDetail||'Raspored';
-   return '<div class="card"><div class="tag">'+esc(status)+'</div><h3>'+esc(label)+'</h3>'+(ranked.length?ranked.map((p,i)=>{const injury=injuryData.find(x=>x.name.toLowerCase()===p.name.toLowerCase());const warn=injury&&/doubtful|questionable|day.to.day/i.test(String(typeof injury.status==='object'?JSON.stringify(injury.status):injury.status));return '<div class="stat" style="display:block"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+(i+1)+'. '+esc(p.name)+'</b><span class="tag">'+esc(p.team)+'</span></div><div style="display:flex;justify-content:space-between;gap:6px;margin-top:8px"><span>Poeni <b class="green">'+p.pts.toFixed(1)+'</b></span><span>Skokovi <b class="green">'+p.reb.toFixed(1)+'</b></span><span>Asist. <b class="green">'+p.ast.toFixed(1)+'</b></span></div><div class="muted">Sezonski prosjeci · '+(p.minutes!==null?p.minutes.toFixed(1)+' min':'minutaža nije dostupna')+(warn?' · ⚠️ '+esc(typeof injury.status==='object'?JSON.stringify(injury.status):injury.status):'')+'</div></div>'}).join(''):'<p class="orange">Nema dovoljno dostupnih statistika za izbor pet igrača.</p>')+'</div>';
+   return '<div class="card"><div class="tag">'+esc(status)+'</div><h3>'+esc(label)+'</h3>'+(ranked.length?ranked.map((p,i)=>{
+    const uncertain=p.injury&&isQuestionable(p.injury),pid=esc(p.id);
+    return '<div class="stat" style="display:block"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+(i+1)+'. '+esc(p.name)+'</b><span class="tag">'+esc(p.team)+'</span></div><div class="projection">'+p.projection.toFixed(1)+' poena</div><div class="muted">Moja prognoza · zadnjih '+p.games+' utakmica (zadnjih 5 imaju veću težinu)'+(p.minutes!==null?' · minutaža zadnjih 5: '+p.minutes.toFixed(1)+' min':'')+(uncertain?' · ⚠️ '+esc(typeof p.injury.status==='object'?JSON.stringify(p.injury.status):p.injury.status):'')+'</div><label>Premier margina za poene</label><input type="number" step="0.5" placeholder="Npr. 23.5" data-playerid="'+pid+'" data-projection="'+p.projection.toFixed(2)+'" oninput="updateDailyLine(this)"><div class="muted" id="daily-diff-'+pid+'">Upiši Premier marginu da vidiš razliku OVER/UNDER.</div></div>';
+   }).join(''):'<p class="orange">Nema dovoljno dostupnih podataka iz zadnjih utakmica za prognozu.</p>')+'</div>';
   }).join('');
-  target.innerHTML=html+'<p class="muted">Procjene su orijentirane na sezonske prosjeke po utakmici, nisu jamstvo učinka. TOP 5 bira se po ponderiranom ukupnom učinku (poeni + 1,2 × skokovi + 1,5 × asistencije). Igrači označeni kao OUT ili INACTIVE isključeni su; upitni statusi označeni su upozorenjem. Ako ESPN ne dostavi statistiku ili status, alat to ne može potvrditi.</p>';
+  target.innerHTML=html+'<p class="muted">TOP 5 bira se po procijenjenim poenima za večerašnju utakmicu, na temelju zadnjih 10 nastupa (65% težine zadnjih 5 + 35% prosjeka zadnjih 10). OUT igrači su isključeni. Premier margina se zasad unosi ručno jer nemamo potvrđen automatski pristup Premierovim linijama. Ovo su procjene modela, ne sigurne prognoze.</p>';
  }catch(e){target.innerHTML='<div class="card orange">Podatke za utakmice nije moguće dohvatiti. Pokušaj ponovno.</div>'}
  finally{dailyLoading=false}
 }

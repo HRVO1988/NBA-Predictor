@@ -1,365 +1,45 @@
 <!DOCTYPE html>
-
 <html lang="hr">
-
 <head>
-
 <meta charset="UTF-8">
-
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>NBA Predictor</title>
-
 <style>
-
-*{box-sizing:border-box}
-
-body{margin:0;background:#10131c;color:#fff;font-family:Arial,sans-serif}
-
-header{background:#191f2e;padding:22px 18px;border-bottom:2px solid #e66b25}
-
-h1{margin:0;color:#ff873e;font-size:27px}
-
-header p{color:#aeb7c9;margin:7px 0 0}
-
-main{padding:16px;max-width:700px;margin:auto}
-
-nav{display:flex;gap:7px;overflow:auto;margin-bottom:18px}
-
-nav button{white-space:nowrap;background:#252d3e;color:white;border:0;border-radius:9px;padding:12px}
-
-nav button.active{background:#e66b25}
-
-h2{font-size:19px}
-
-.card{background:#1c2332;border:1px solid #30394d;border-radius:13px;padding:15px;margin:12px 0}
-
-.muted{color:#aab4c5;font-size:13px}
-
-.stat{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #30394d}
-
-.green{color:#54dc9b}
-
-.orange{color:#ff9b55}
-
-input,select{width:100%;padding:12px;margin:7px 0;background:#111827;color:white;border:1px solid #46516a;border-radius:8px}
-
-.action{background:#e66b25;color:white;border:0;padding:12px;border-radius:8px;width:100%;font-weight:bold;margin-top:8px}
-
-.section{display:none}
-
-.section.active{display:block}
-
-.tag{background:#29364b;padding:5px 8px;border-radius:6px;font-size:12px;color:#ffad79}
-
-footer{text-align:center;color:#788399;font-size:12px;padding:25px}
-
+*{box-sizing:border-box}body{margin:0;background:#10131c;color:#fff;font-family:Arial,sans-serif}header{background:#191f2e;padding:22px 18px;border-bottom:2px solid #e66b25}h1{margin:0;color:#ff873e;font-size:27px}header p{color:#aeb7c9;margin:7px 0 0}main{padding:16px;max-width:760px;margin:auto}nav{display:flex;gap:7px;overflow:auto;margin-bottom:18px}nav button{white-space:nowrap;background:#252d3e;color:white;border:0;border-radius:9px;padding:12px}nav button.active{background:#e66b25}h2{font-size:19px}.card{background:#1c2332;border:1px solid #30394d;border-radius:13px;padding:15px;margin:12px 0}.muted{color:#aab4c5;font-size:13px}.stat{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #30394d}.green{color:#54dc9b}.orange{color:#ff9b55}.section{display:none}.section.active{display:block}.tag{background:#29364b;padding:5px 8px;border-radius:6px;font-size:12px;color:#ffad79}.action{background:#e66b25;color:white;border:0;padding:12px;border-radius:8px;width:100%;font-weight:bold;margin-top:8px}input,select{width:100%;padding:12px;margin:7px 0;background:#111827;color:white;border:1px solid #46516a;border-radius:8px}.notice{padding:12px;background:#292536;border-radius:9px;color:#ffcf9d;font-size:13px}.game-status{color:#ffb27f;font-size:13px}footer{text-align:center;color:#788399;font-size:12px;padding:25px}
 </style>
-
 </head>
-
 <body>
-
-<header>
-
-<h1>🏀 NBA PREDICTOR</h1>
-
-<p>Tvoj košarkaški statistički centar</p>
-
-</header>
-
+<header><h1>🏀 NBA PREDICTOR</h1><p>Tvoj košarkaški statistički centar</p></header>
 <main>
-
 <nav>
-
-<button class="active" onclick="show('top',this)">Top prilike</button>
-
-<button onclick="show('players',this)">Igrači</button>
-
+<button class="active" onclick="show('top',this)">Pregled</button>
 <button onclick="show('games',this)">Utakmice</button>
-
+<button onclick="show('players',this)">Igrači</button>
 <button onclick="show('lines',this)">Linije</button>
-
 <button onclick="show('injuries',this)">Ozljede</button>
-
 </nav>
-
 <section id="top" class="section active">
-
-<h2>🔥 Top 5 statističkih prilika</h2>
-
-<p class="muted">Primjeri za prikaz aplikacije – nisu stvarne aktualne ponude.</p>
-
-<div class="card">
-
-<span class="tag">POENI</span>
-
-<h3>⭐ Luka Dončić</h3>
-
-<div class="stat"><span>Primjer granice</span><b>25.5 poena</b></div>
-
-<div class="stat"><span>Primjer procjene</span><b class="green">28 poena</b></div>
-
-<p class="muted">Demo statistička procjena.</p>
-
-</div>
-
-<div class="card">
-
-<span class="tag">SKOKOVI</span>
-
-<h3>⭐ Nikola Jokić</h3>
-
-<div class="stat"><span>Primjer granice</span><b>10.5 skokova</b></div>
-
-<div class="stat"><span>Primjer procjene</span><b class="green">12 skokova</b></div>
-
-<p class="muted">Demo statistička procjena.</p>
-
-</div>
-
-<div class="card">
-
-<span class="tag">ASISTENCIJE</span>
-
-<h3>⭐ Shai Gilgeous-Alexander</h3>
-
-<div class="stat"><span>Primjer granice</span><b>5.5 asistencija</b></div>
-
-<div class="stat"><span>Primjer procjene</span><b class="green">6 asistencija</b></div>
-
-<p class="muted">Demo statistička procjena.</p>
-
-</div>
-
-<div class="card">
-
-<span class="tag">POENI</span>
-
-<h3>⭐ Jayson Tatum</h3>
-
-<div class="stat"><span>Primjer granice</span><b>24.5 poena</b></div>
-
-<div class="stat"><span>Primjer procjene</span><b class="green">26 poena</b></div>
-
-<p class="muted">Demo statistička procjena.</p>
-
-</div>
-
-<div class="card">
-
-<span class="tag">SKOKOVI</span>
-
-<h3>⭐ Giannis Antetokounmpo</h3>
-
-<div class="stat"><span>Primjer granice</span><b>9.5 skokova</b></div>
-
-<div class="stat"><span>Primjer procjene</span><b class="green">11 skokova</b></div>
-
-<p class="muted">Demo statistička procjena.</p>
-
-</div>
-
+<h2>🏀 NBA danas</h2><p class="muted" id="updated">Učitavam najnovije podatke…</p>
+<div id="todayGames"></div>
+<div class="notice">Raspored i rezultati učitavaju se iz ESPN javnog sportskog izvora. Procjene i kladioničarske granice nisu službeni podaci.</div>
 </section>
-
-<section id="players" class="section">
-
-<h2>🔎 Pretraživanje igrača</h2>
-
-<input id="search" placeholder="Upiši ime igrača..." oninput="searchPlayers()">
-
-<div id="playerResults"></div>
-
-</section>
-
-<section id="games" class="section">
-
-<h2>🏀 NBA utakmice</h2>
-
-<div class="card">
-
-<h3>Los Angeles Lakers – Denver Nuggets</h3>
-
-<p class="muted">Primjer utakmice</p>
-
-<div class="stat"><span>Lakers</span><b>VS</b><span>Nuggets</span></div>
-
-</div>
-
-<div class="card">
-
-<h3>Boston Celtics – Miami Heat</h3>
-
-<p class="muted">Primjer utakmice</p>
-
-<div class="stat"><span>Celtics</span><b>VS</b><span>Heat</span></div>
-
-</div>
-
-<div class="card">
-
-<h3>Oklahoma City – Dallas</h3>
-
-<p class="muted">Primjer utakmice</p>
-
-<div class="stat"><span>OKC</span><b>VS</b><span>Dallas</span></div>
-
-</div>
-
-</section>
-
-<section id="lines" class="section">
-
-<h2>📊 Usporedba granica</h2>
-
-<div class="card">
-
-<label>Odaberi statistiku</label>
-
-<select id="statType">
-
-<option>Poeni</option>
-
-<option>Skokovi</option>
-
-<option>Asistencije</option>
-
-</select>
-
-<label>Granica kladionice</label>
-
-<input id="line" type="number" step="0.5" placeholder="Npr. 25.5">
-
-<label>Tvoja procjena igrača</label>
-
-<input id="estimate" type="number" step="0.5" placeholder="Npr. 28">
-
-<button class="action" onclick="compare()">Usporedi procjenu</button>
-
-<div id="comparison"></div>
-
-</div>
-
-</section>
-
-<section id="injuries" class="section">
-
-<h2>🚑 Ozljede i status igrača</h2>
-
-<div class="card">
-
-<h3>Status igrača</h3>
-
-<p class="muted">Ovdje će se prikazivati ozljede, izostanci i upitni igrači kada povežemo izvor aktualnih podataka.</p>
-
-</div>
-
-</section>
-
-<footer>
-
-NBA PREDICTOR<br>
-
-Statistički alat – informativne procjene, ne jamstvo rezultata.
-
-</footer>
-
+<section id="games" class="section"><h2>📅 NBA utakmice</h2><p class="muted">Raspored, rezultati i status utakmica.</p><div id="allGames"></div></section>
+<section id="players" class="section"><h2>🔎 Statistika igrača</h2><div class="notice">Aktualni sezonski prosjeci još nisu povezani. Ne prikazujemo izmišljene ili zastarjele brojke kao aktualne.</div><input id="search" placeholder="Pretraži igrača…" oninput="searchPlayers()"><div id="playerResults" class="card muted">Baza aktualnih igrača još se povezuje.</div></section>
+<section id="lines" class="section"><h2>📊 Usporedba granice</h2><div class="card"><label>Vrsta statistike</label><select id="statType"><option>Poeni</option><option>Skokovi</option><option>Asistencije</option></select><label>Granica kladionice</label><input id="line" type="number" step="0.5" placeholder="Npr. 25.5"><label>Tvoja procjena</label><input id="estimate" type="number" step="0.5" placeholder="Npr. 28"><button class="action" onclick="compare()">Usporedi procjenu</button><div id="comparison"></div></div><p class="muted">Usporedba prikazuje samo matematičku razliku unesenih vrijednosti.</p></section>
+<section id="injuries" class="section"><h2>🚑 Ozljede i status igrača</h2><p class="muted">Najnoviji dostupni izvještaji.</p><div id="injuryList">Učitavam izvještaje…</div></section>
+<footer>NBA PREDICTOR<br>Informativni statistički alat. Nema jamstva dobitka.</footer>
 </main>
-
 <script>
-
-const players=[
-
-{name:"Luka Dončić",team:"Los Angeles Lakers",points:28.0,rebounds:8.0,assists:8.5},
-
-{name:"Nikola Jokić",team:"Denver Nuggets",points:27.0,rebounds:12.0,assists:9.0},
-
-{name:"Shai Gilgeous-Alexander",team:"Oklahoma City",points:30.0,rebounds:5.0,assists:6.0},
-
-{name:"Jayson Tatum",team:"Boston Celtics",points:26.0,rebounds:9.0,assists:5.0},
-
-{name:"Giannis Antetokounmpo",team:"Milwaukee Bucks",points:30.0,rebounds:11.0,assists:6.0},
-
-{name:"Stephen Curry",team:"Golden State",points:25.0,rebounds:4.0,assists:6.0}
-
-];
-
-function show(id,button){
-
-document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
-
-document.getElementById(id).classList.add("active");
-
-document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
-
-button.classList.add("active");
-
-}
-
-function searchPlayers(){
-
-const q=document.getElementById("search").value.toLowerCase();
-
-const results=players.filter(p=>p.name.toLowerCase().includes(q));
-
-document.getElementById("playerResults").innerHTML=results.map(p=>`
-
-<div class="card">
-
-<h3>${p.name}</h3>
-
-<p class="muted">${p.team}</p>
-
-<div class="stat"><span>Poeni</span><b>${p.points}</b></div>
-
-<div class="stat"><span>Skokovi</span><b>${p.rebounds}</b></div>
-
-<div class="stat"><span>Asistencije</span><b>${p.assists}</b></div>
-
-</div>`).join("") || "<p>Nema pronađenih igrača.</p>";
-
-}
-
-function compare(){
-
-const line=Number(document.getElementById("line").value);
-
-const estimate=Number(document.getElementById("estimate").value);
-
-const type=document.getElementById("statType").value;
-
-const result=document.getElementById("comparison");
-
-if(!document.getElementById("line").value || !document.getElementById("estimate").value){
-
-result.innerHTML="<p class='orange'>Unesi obje vrijednosti.</p>";
-
-return;
-
-}
-
-const diff=estimate-line;
-
-result.innerHTML=`
-
-<div class="card">
-
-<h3>Rezultat usporedbe</h3>
-
-<p>Statistika: ${type}</p>
-
-<p>Razlika: <b class="${diff>0?'green':diff<0?'orange':''}">${diff>0?'+':''}${diff.toFixed(1)}</b></p>
-
-<p>${diff>0?'Procjena je iznad granice.':diff<0?'Procjena je ispod granice.':'Procjena je jednaka granici.'}</p>
-
-</div>`;
-
-}
-
-searchPlayers();
-
+const API='https://site.api.espn.com/apis/site/v2/sports/basketball/nba';
+function show(id,button){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));button.classList.add('active')}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function gameCard(g){const c=g.competitions?.[0],teams=c?.competitors||[],home=teams.find(t=>t.homeAway==='home')||teams[0],away=teams.find(t=>t.homeAway==='away')||teams[1],status=c?.status?.type?.shortDetail||g.status?.type?.shortDetail||'Raspored';return '<div class="card"><div class="game-status">'+esc(status)+'</div><div class="stat"><b>'+esc(away?.team?.displayName||'Gost')+'</b><b>'+esc(away?.score??'—')+'</b></div><div class="stat"><b>'+esc(home?.team?.displayName||'Domaćin')+'</b><b>'+esc(home?.score??'—')+'</b></div><p class="muted">'+esc(new Date(g.date).toLocaleString('hr-HR',{dateStyle:'medium',timeStyle:'short'}))+'</p></div>'}
+async function loadGames(){const box=document.getElementById('todayGames'),all=document.getElementById('allGames');try{const r=await fetch(API+'/scoreboard?limit=100');if(!r.ok)throw Error();const data=await r.json(),events=data.events||[];document.getElementById('updated').textContent='Ažurirano: '+new Date().toLocaleString('hr-HR')+' · Izvor: ESPN';const html=events.length?events.map(gameCard).join(''):'<div class="card">Trenutno nema NBA utakmica na rasporedu.</div>';box.innerHTML=html;all.innerHTML=html}catch(e){box.innerHTML='<div class="card orange">Raspored trenutačno nije dostupan. Pokušaj ponovno kasnije.</div>';all.innerHTML=box.innerHTML;document.getElementById('updated').textContent='Podaci trenutno nisu dostupni.'}}
+function collectInjuries(data){const out=[],seen=new Set();function walk(x){if(!x||typeof x!=='object')return;if(Array.isArray(x)){x.forEach(walk);return}const athlete=x.athlete||x.player||{},name=athlete.displayName||x.displayName||x.fullName,detail=x.status||x.injuryStatus||x.type?.description||x.injury?.status;if(name&&detail){const key=name+'|'+(typeof detail==='string'?detail:JSON.stringify(detail));if(!seen.has(key)){seen.add(key);out.push({name,status:detail,team:x.team?.displayName||x.team?.name||''})}}Object.values(x).forEach(v=>{if(v&&typeof v==='object')walk(v)})}walk(data);return out}
+async function loadInjuries(){const el=document.getElementById('injuryList');try{const r=await fetch(API+'/injuries');if(!r.ok)throw Error();const data=await r.json(),items=collectInjuries(data);el.innerHTML=items.length?items.slice(0,100).map(x=>'<div class="card"><b>'+esc(x.name)+'</b><div class="muted">'+esc(x.team)+'</div><p class="orange">'+esc(typeof x.status==='object'?JSON.stringify(x.status):x.status)+'</p></div>').join(''):'<div class="card">Izvor trenutačno ne vraća popis ozljeda.</div>'}catch(e){el.innerHTML='<div class="card orange">Izvještaj o ozljedama trenutačno nije dostupan. Provjeri kasnije.</div>'}}
+function searchPlayers(){const q=document.getElementById('search').value.trim();document.getElementById('playerResults').textContent=q?'Baza aktualnih sezonskih statistika još se povezuje.':'Upiši ime igrača.'}
+function compare(){const l=document.getElementById('line').value,e=document.getElementById('estimate').value,res=document.getElementById('comparison');if(l===''||e===''){res.innerHTML='<p class="orange">Unesi obje vrijednosti.</p>';return}const d=Number(e)-Number(l);res.innerHTML='<div class="card"><h3>Rezultat usporedbe</h3><p>Statistika: '+esc(document.getElementById('statType').value)+'</p><p>Razlika: <b class="'+(d>0?'green':d<0?'orange':'')+'">'+(d>0?'+':'')+d.toFixed(1)+'</b></p><p>'+(d>0?'Procjena je iznad granice.':d<0?'Procjena je ispod granice.':'Procjena je jednaka granici.')+'</p></div>'}
+loadGames();loadInjuries();
 </script>
-
 </body>
-
 </html>

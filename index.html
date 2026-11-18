@@ -13,7 +13,7 @@
 <main>
 <nav>
 <button class="active" onclick="show('top',this)">Pregled</button>
-<button onclick="show('games',this)">Utakmice</button>
+<button onclick="show('daily',this)">TOP 5 danas</button><button onclick="show('games',this)">Utakmice</button>
 <button onclick="show('players',this)">Igrači</button>
 <button onclick="show('predict',this)">Predikcija</button>
 <button onclick="show('lines',this)">Linije</button>
@@ -24,6 +24,7 @@
 <div id="todayGames"></div>
 <div class="notice">Raspored i rezultati: ESPN. Podaci se osvježavaju pri otvaranju stranice. Statističke procjene i kladioničarske granice nisu službeni podaci.</div>
 </section>
+<section id="daily" class="section"><h2>🏆 Dnevnih TOP 5 prijedloga</h2><p class="muted" id="dailyDate">Učitavam današnje utakmice…</p><div class="notice">Do 5 igrača po kategoriji iz ekipa koje danas igraju. Koristimo sezonske prosjeke i dostupnu minutažu. Ozljede su upozorenje za dostupnost; ne pretpostavljamo automatski dodatne minute.</div><button class="action" onclick="loadDailyPicks(true)">Osvježi prijedloge</button><div id="dailyPicks"><div class="card">Učitavam statistiku igrača…</div></div></section>
 <section id="games" class="section"><h2>📅 NBA utakmice</h2><p class="muted">Stvarni raspored, rezultati i status utakmica.</p><div id="allGames"></div></section>
 <section id="players" class="section">
 <h2>🔎 Stvarna statistika igrača</h2>
@@ -76,8 +77,47 @@ async function getOpponentDefense(teamId,season){if(!teamId)return null;try{cons
 function teammateOuts(){if(!selectedPredictPlayer)return [];return injuryData.filter(x=>x.status&&/out|doubtful|inactive/i.test(typeof x.status==='string'?x.status:JSON.stringify(x.status))&&(!x.team||x.team===selectedPredictPlayer.team))}
 async function makePrediction(){const out=document.getElementById('predictionResult'),op=document.getElementById('opponentSelect').value;if(!selectedPredictPlayer){out.innerHTML='<div class="card orange">Prvo odaberi igrača.</div>';return}if(!op){out.innerHTML='<div class="card orange">Odaberi protivnika iz današnjih utakmica.</div>';return}out.innerHTML='<div class="card">Analiziram statistiku, formu, obranu i ozljede…</div>';try{const p=await getPlayerStats(selectedPredictPlayer.id),seasonAvg=numericStat(p.data,/^(avgpoints|pointspergame|ppg)$/i);if(seasonAvg===null)throw Error('no average');let recent=null,formNote='';try{const log=await getRecentGames(selectedPredictPlayer.id,p.season);const vals=collectRecentPoints(log);if(vals.length){recent=vals.reduce((a,b)=>a+b,0)/vals.length;formNote='Prosjek zadnjih '+vals.length+' utakmica: '+recent.toFixed(1)+' poena.'}}catch(e){}const base=recent===null?seasonAvg:seasonAvg*.6+recent*.4;const opponent=await getOpponentDefense(op,p.season);const defenseFactor=opponent===null?1:Math.max(.92,Math.min(1.08,1+(114-opponent)/1000));const projected=base*defenseFactor;const oppName=document.getElementById('opponentSelect').selectedOptions[0].text;const outs=teammateOuts();let depth='';try{if(selectedPredictPlayer.teamId){const rr=await fetch(API+'/teams/'+selectedPredictPlayer.teamId+'/depthcharts?season='+p.season);if(rr.ok){const dd=await rr.json(),names=[];function scan(x){if(!x||typeof x!=='object')return;if(Array.isArray(x)){x.forEach(scan);return}if(x.athlete?.displayName)names.push(x.athlete.displayName);Object.values(x).forEach(v=>{if(v&&typeof v==='object')scan(v)})}scan(dd);if(names.length)depth='ESPN-ova dubinska lista: '+[...new Set(names)].slice(0,8).join(', ')+'.'}}}catch(e){}out.innerHTML='<div class="card"><span class="tag">STATISTIČKA PROCJENA</span><h3>'+esc(selectedPredictPlayer.name)+' protiv '+esc(oppName)+'</h3><div class="projection">'+projected.toFixed(1)+' poena</div><div class="stat"><span>Sezonski prosjek</span><b>'+seasonAvg.toFixed(1)+'</b></div>'+(recent!==null?'<div class="stat"><span>Zadnjih utakmica</span><b>'+recent.toFixed(1)+'</b></div>':'')+'<div class="stat"><span>Obrana protivnika</span><b>'+(opponent===null?'Nije dostupna':opponent.toFixed(1)+' primljenih poena')+'</b></div><p class="muted">'+(formNote||'Forma zadnjih utakmica nije dostupna.')+'</p><p class="muted">'+(opponent===null?'Nije bilo moguće prilagoditi procjenu prema obrani protivnika.':'Procjena je blago prilagođena prema primljenim poenima protivnika.')+'</p><h3>Izostanci u ekipi</h3>'+(outs.length?outs.map(x=>'<p class="warning">• '+esc(x.name)+' — '+esc(typeof x.status==='object'?JSON.stringify(x.status):x.status)+'</p>').join(''):'<p class="muted">Nema potvrđenih izostanaka iz dostupnog ESPN izvještaja za ovu ekipu.</p>')+(depth?'<p class="muted">'+esc(depth)+'</p>':'<p class="muted">Dubinska lista zamjena nije dostupna; neću nagađati tko će sigurno uskočiti.</p>')+'<p class="muted">Model: 60% sezonski prosjek + 40% zadnjih utakmica, uz ograničenu prilagodbu obrane. Ne uključuje potvrđenu minutažu ili individualni matchup ako podaci nisu dostupni.</p></div>'}catch(e){out.innerHTML='<div class="card orange">Nije moguće izračunati procjenu jer ESPN trenutačno nije vratio statistiku igrača.</div>'}}
 
+
+// Daily shortlist based on ESPN season averages and today's active schedule.
+let dailyLoading=false;
+function readNamedStats(data){
+ const out={points:null,rebounds:null,assists:null,threes:null,minutes:null};
+ const pats={points:/(avg.?points|points.?per.?game|^ppg$|^points$)/i,rebounds:/(avg.?rebounds|rebounds.?per.?game|^rpg$|^rebounds$)/i,assists:/(avg.?assists|assists.?per.?game|^apg$|^assists$)/i,threes:/(avg.?(three.?point|3.?point).?(field.?goals?.?)?(made|m)?|three.?point.?field.?goals?.?made|^3pm$|^3ptm$)/i,minutes:/(avg.?minutes|minutes.?per.?game|^mpg$|^minutes$)/i};
+ function walk(x){if(!x||typeof x!=='object')return;if(Array.isArray(x)){x.forEach(walk);return}const key=String(x.name||x.abbreviation||x.shortDisplayName||x.displayName||x.label||'').replace(/[ _-]/g,'');const val=x.displayValue??x.value??x.display;for(const k in pats){if(out[k]===null&&pats[k].test(key)&&val!==undefined&&val!==null){const n=Number(String(val).replace(/[^0-9.-]/g,''));if(Number.isFinite(n))out[k]=n}}Object.values(x).forEach(v=>{if(v&&typeof v==='object')walk(v)})}
+ walk(data);return out;
+}
+function rosterAthletes(data){
+ const arr=[],seen=new Set();
+ function walk(x){if(!x||typeof x!=='object')return;if(Array.isArray(x)){x.forEach(walk);return}const a=x.athlete||((x.id&&x.displayName)?x:null);if(a&&(a.id||a.uid)&&a.displayName){const id=String(a.id||a.uid).split(':').pop();if(!seen.has(id)){seen.add(id);arr.push({id,name:a.displayName})}}Object.values(x).forEach(v=>{if(v&&typeof v==='object')walk(v)})}
+ walk(data);return arr;
+}
+async function loadDailyPicks(force=false){
+ if(dailyLoading)return;dailyLoading=true;
+ const target=document.getElementById('dailyPicks'),date=document.getElementById('dailyDate');
+ target.innerHTML='<div class="card">Dohvaćam današnje ekipe i statistiku igrača…</div>';
+ date.textContent='Datum: '+new Date().toLocaleDateString('hr-HR')+' · osvježava se pri otvaranju';
+ try{
+  let events=currentEvents;
+  if(!events.length){const sr=await fetch(API+'/scoreboard?limit=100');if(!sr.ok)throw Error('schedule');events=(await sr.json()).events||[];currentEvents=events}
+  const teams=[];events.forEach(g=>(g.competitions?.[0]?.competitors||[]).forEach(t=>{if(t.team?.id)teams.push({id:String(t.team.id),name:t.team.displayName||t.team.name})}));
+  const unique=[...new Map(teams.map(t=>[t.id,t])).values()];
+  if(!unique.length){target.innerHTML='<div class="card orange">Danas nema NBA utakmica ili raspored nije dostupan.</div>';return}
+  const rosters=await Promise.all(unique.map(async t=>{try{const r=await fetch(API+'/teams/'+t.id+'/roster');if(!r.ok)return [];return rosterAthletes(await r.json()).map(a=>({...a,team:t.name}))}catch(e){return []}}));
+  const players=[...new Map(rosters.flat().map(p=>[p.id,p])).values()];
+  if(!players.length){target.innerHTML='<div class="card orange">ESPN nije vratio sastave ekipa. Neću prikazivati izmišljene prijedloge.</div>';return}
+  const candidates=players.slice(0,Math.min(players.length,72));
+  const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);
+  const results=await Promise.all(candidates.map(async p=>{try{const r=await fetch(COMMON+'/athletes/'+p.id+'/stats?region=us&lang=en&contentorigin=espn&season='+season+'&seasontype=2');if(!r.ok)return null;const stats=readNamedStats(await r.json());if(stats.minutes===null||stats.minutes<8)return null;return {...p,...stats}}catch(e){return null}}));
+  const usable=results.filter(p=>p&&p.minutes!==null);
+  if(!usable.length){target.innerHTML='<div class="card orange">Nema dovoljno dostupnih sezonskih statistika i minutaže za današnje igrače.</div>';return}
+  const defs=[['points','Poeni'],['rebounds','Skokovi'],['assists','Asistencije'],['threes','Trojke']];
+  target.innerHTML=defs.map(([key,label])=>{const ranked=usable.filter(p=>p[key]!==null&&p[key]>0).sort((a,b)=>b[key]-a[key]).slice(0,5);return '<div class="card"><h3>'+label+' · TOP 5</h3>'+(ranked.length?ranked.map((p,i)=>{const status=injuryData.find(x=>x.name.toLowerCase()===p.name.toLowerCase());const unavailable=status&&/out|doubtful|inactive/i.test(typeof status.status==='string'?status.status:JSON.stringify(status.status));return '<div class="stat"><div><b>'+(i+1)+'. '+esc(p.name)+'</b><div class="muted">'+esc(p.team)+' · prosjek minutaže: '+p.minutes.toFixed(1)+' min'+(unavailable?' · ⚠️ '+esc(typeof status.status==='object'?JSON.stringify(status.status):status.status):'')+'</div></div><b class="green">'+p[key].toFixed(1)+'</b></div>'}).join(''):'<p class="muted">Nema dovoljno podataka za ovu kategoriju.</p>')+'</div>'}).join('')+'<p class="muted">Poredak je prema sezonskom prosjeku, ne prema kladioničarskoj granici. Minutaža je sezonski prosjek, a ne potvrđena projekcija za večeras. Status ozljeda ovisi o ESPN izvještaju. Ovo su statistički kandidati, ne garancije.</p>';
+ }catch(e){target.innerHTML='<div class="card orange">Dnevni prijedlozi trenutačno nisu dostupni. Pokušaj ponovno.</div>'}
+ finally{dailyLoading=false}
+}
+
 function compare(){const l=document.getElementById('line').value,e=document.getElementById('estimate').value,res=document.getElementById('comparison');if(l===''||e===''){res.innerHTML='<p class="orange">Unesi obje vrijednosti.</p>';return}const d=Number(e)-Number(l);res.innerHTML='<div class="card"><h3>Rezultat usporedbe</h3><p>Statistika: '+esc(document.getElementById('statType').value)+'</p><p>Razlika: <b class="'+(d>0?'green':d<0?'orange':'')+'">'+(d>0?'+':'')+d.toFixed(1)+'</b></p><p>'+(d>0?'Procjena je iznad granice.':d<0?'Procjena je ispod granice.':'Procjena je jednaka granici.')+'</p></div>'}
-loadGames();loadInjuries();
+loadGames();loadInjuries();loadDailyPicks();
 </script>
 </body>
 </html>

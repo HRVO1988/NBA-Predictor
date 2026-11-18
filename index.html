@@ -98,7 +98,18 @@ function readNamedStats(data){
 }
 function rosterAthletes(data){
  const arr=[],seen=new Set();
- function walk(x){if(!x||typeof x!=='object')return;if(Array.isArray(x)){x.forEach(walk);return}const a=x.athlete||((x.id&&x.displayName)?x:null);if(a&&(a.id||a.uid)&&a.displayName){const id=String(a.id||a.uid).split(':').pop();if(!seen.has(id)){seen.add(id);arr.push({id,name:a.displayName})}}Object.values(x).forEach(v=>{if(v&&typeof v==='object')walk(v)})}
+ function walk(x){
+  if(!x||typeof x!=='object')return;
+  if(Array.isArray(x)){x.forEach(walk);return}
+  let a=x.athlete&&typeof x.athlete==='object'?x.athlete:null;
+  if(!a&&(x.id||x.uid)&&(x.displayName||x.fullName||x.firstName||x.lastName))a=x;
+  if(a&&(a.id||a.uid)){
+   const id=String(a.id||a.uid).split(':').pop();
+   const name=a.displayName||a.fullName||[a.firstName,a.lastName].filter(Boolean).join(' ');
+   if(id&&name&&!seen.has(id)){seen.add(id);arr.push({id,name})}
+  }
+  Object.values(x).forEach(v=>{if(v&&typeof v==='object')walk(v)});
+ }
  walk(data);return arr;
 }
 async function loadDailyPicks(force=false){
@@ -112,7 +123,7 @@ async function loadDailyPicks(force=false){
   if(!events.length){target.innerHTML='<div class="card orange">Danas nema NBA utakmica na rasporedu.</div>';return}
   const gameTeams=events.map(g=>({game:g,teams:(g.competitions?.[0]?.competitors||[]).map(t=>({id:String(t.team?.id||''),name:t.team?.displayName||t.team?.name||'Ekipa'})).filter(t=>t.id)})).filter(x=>x.teams.length===2);
   const teamMap=new Map();gameTeams.forEach(x=>x.teams.forEach(t=>teamMap.set(t.id,t)));
-  const rosterEntries=await Promise.all([...teamMap.values()].map(async t=>{try{const r=await fetchTimeout(API+'/teams/'+t.id+'/roster');if(!r.ok)return [t.id,[]];return [t.id,rosterAthletes(await r.json()).slice(0,14).map(a=>({...a,team:t.name,teamId:t.id}))]}catch(e){return [t.id,[]]}}));
+  const rosterEntries=await Promise.all([...teamMap.values()].map(async t=>{try{const r=await fetchTimeout(API+'/teams/'+t.id+'/roster');if(!r.ok)return [t.id,[]];return [t.id,rosterAthletes(await r.json()).map(a=>({...a,team:t.name,teamId:t.id}))]}catch(e){return [t.id,[]]}}));
   const rosters=new Map(rosterEntries);
   const allPlayers=[...new Map(rosterEntries.flatMap(x=>x[1]).map(p=>[p.id,p])).values()];
   if(!allPlayers.length){target.innerHTML='<div class="card orange">ESPN trenutačno ne vraća sastave igrača. Pokušaj ponovno kasnije.</div>';return}

@@ -462,7 +462,7 @@ async function calculatePremierPredictions(){
  premierRunning=false;
 }
 function compare(){const l=document.getElementById('line').value,e=document.getElementById('estimate').value,res=document.getElementById('comparison');if(l===''||e===''){res.innerHTML='<p class="orange">Unesi obje vrijednosti.</p>';return}const d=Number(e)-Number(l);res.innerHTML='<div class="card"><h3>Rezultat usporedbe</h3><p>Statistika: '+esc(document.getElementById('statType').value)+'</p><p>Razlika: <b class="'+(d>0?'green':d<0?'orange':'')+'">'+(d>0?'+':'')+d.toFixed(1)+'</b></p><p>'+(d>0?'Procjena je iznad granice.':d<0?'Procjena je ispod granice.':'Procjena je jednaka granici.')+'</p></div>'}
-loadGames();loadInjuries();loadDailyPicks();renderPremierOffer();
+loadGames();loadInjuries();loadDailyPicks();renderPremierOffer();\n// Automatski pokreni izračun pri otvaranju aplikacije, bez čekanja na ponovni klik kartice.\nwindow.addEventListener('load',()=>{if(!premierAutoStarted){premierAutoStarted=true;calculatePremierPredictions()}});
 </script>
 <script>
 if('serviceWorker' in navigator){window.addEventListener('load',async()=>{try{const reg=await navigator.serviceWorker.register('./sw.js');await reg.update()}catch(e){}})}

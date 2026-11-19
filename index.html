@@ -55,7 +55,7 @@
 <div id="predictionResult"></div>
 <div class="notice">Procjena je statistički model, ne sigurna prognoza. Ako izvor ne daje podatak o obrani, ozljedama ili zamjeni, aplikacija će to označiti umjesto da izmišlja vrijednosti.</div>
 </section>
-<section id="premier" class="section"><h2>📋 Premier ponuda — 31 igrača</h2><p class="muted">Granice i kvote prepisane iz tvojih snimki. Procjena se automatski popunjava iz DARKO PTS/G gdje je javno prikazana (snapshot 17.11.2026); za ostale igrače koristi se ESPN forma kao rezerva. 1 = MANJE (1,85), 2 = VIŠE (1,85).</p><button class="action" id="premierRun" onclick="calculatePremierPredictions()">Izračunaj / osvježi svih 31 predikcija</button><p class="muted" id="premierProgress">Predikcije će se učitati iz aktualne sezone.</p><input id="premierSearch" placeholder="Pretraži igrača ili momčad…" oninput="renderPremierOffer()"><div id="premierOfferList"></div><p class="muted">Model: 65% prosjeka zadnjih 5 + 35% zadnjih 10, uz korekciju trenda minutaže. Ozljede se označavaju kad ih ESPN feed prepozna. Ovo nije garancija ishoda. Premierove nove kvote ne mogu se automatski dohvatiti dok Premier ne omogući dostupan javni feed.</p></section>
+<section id="premier" class="section"><h2>📋 Premier ponuda — 31 igrača</h2><p class="muted">Granice i kvote prepisane iz tvojih snimki. Procjena se automatski popunjava iz DARKO PTS/G gdje je javno prikazana (snapshot 17.11.2026); za ostale igrače koristi se ESPN forma kao rezerva. 1 = MANJE (1,85), 2 = VIŠE (1,85).</p><button class="action" id="premierRun" onclick="calculatePremierPredictions()">Izračunaj / osvježi dostupne predikcije</button><p class="muted" id="premierProgress">Predikcije će se učitati iz aktualne sezone.</p><input id="premierSearch" placeholder="Pretraži igrača ili momčad…" oninput="renderPremierOffer()"><div id="premierOfferList"></div><p class="muted">Model: 65% prosjeka zadnjih 5 + 35% zadnjih 10, uz korekciju trenda minutaže. Ozljede se označavaju kad ih ESPN feed prepozna. Ovo nije garancija ishoda. Premierove nove kvote ne mogu se automatski dohvatiti dok Premier ne omogući dostupan javni feed.</p></section>
 <section id="live" class="section">
 <h2>📡 Stvarni poeni igrača uživo</h2>
 <p class="muted">Poeni se čitaju iz NBA boxscorea. Osvježi tijekom utakmice.</p>
@@ -265,11 +265,11 @@ const PREMIER_FULL_NAMES=[
 "Victor Wembanyama","Stephon Castle","Keldon Johnson","De'Aaron Fox","Devin Vassell","Julian Champagnie",
 "Darius Garland","Rui Hachimura","Derrick Jones Jr.","Brook Lopez"
 ];
-let premierRunning=false;let premierAutoStarted=false;
+let premierRunning=false;let premierAutoStarted=false;let premierAvailableIds=null;
 function renderPremierOffer(){
  const box=document.getElementById('premierOfferList');if(!box)return;
  const q=(document.getElementById('premierSearch')?.value||'').trim().toLowerCase();
- const list=PREMIER_PLAYERS.map((p,i)=>({name:p[0],team:p[1],line:p[2],id:i,full:PREMIER_FULL_NAMES[i]})).filter(p=>(p.name+' '+p.team+' '+p.full).toLowerCase().includes(q));
+ const list=PREMIER_PLAYERS.map((p,i)=>({name:p[0],team:p[1],line:p[2],id:i,full:PREMIER_FULL_NAMES[i]})).filter(p=>(!premierAvailableIds||premierAvailableIds.has(p.id))&&(p.name+' '+p.team+' '+p.full).toLowerCase().includes(q));
  box.innerHTML='<div class="card">'+list.map(p=>'<div class="premier-row"><div><b>'+esc(p.name)+'</b><small>'+esc(p.team)+' · '+esc(p.full)+' · 1 manje 1,85 / 2 više 1,85</small><small class="premier-status" id="premier-status-'+p.id+'">Čeka analizu</small></div><b>'+p.line.toFixed(1)+'</b><div class="premier-est" id="premier-proj-'+p.id+'">—</div><div class="premier-signal premier-neutral" id="premier-signal-'+p.id+'">Čeka izračun</div></div>').join('')+'</div>';
 }
 function premierSetStatus(id,msg){const el=document.getElementById('premier-status-'+id);if(el)el.textContent=msg}
@@ -378,22 +378,23 @@ async function calculatePremierPredictions(){
  const btn=document.getElementById('premierRun'),progress=document.getElementById('premierProgress');
  if(btn)btn.disabled=true;
  renderPremierOffer();
- let nextIndex=0,done=0,ok=0,failed=0;
+ let nextIndex=0,done=0,ok=0,failed=0;premierAvailableIds=new Set();
  if(progress)progress.textContent='Obrađujem igrače… 0 / 31';
  const workers=Array.from({length:3},async()=>{
   while(true){
    const i=nextIndex++;
    if(i>=PREMIER_PLAYERS.length)return;
    const p=PREMIER_PLAYERS[i];
-   premierSetStatus(i,'Tražim ESPN podatke…');
-   try{await premierOneProjection({name:p[0],team:p[1],line:p[2],id:i,full:PREMIER_FULL_NAMES[i]});ok++}
+   premierSetStatus(i,'Tražim statističke podatke…');
+   try{await premierOneProjection({name:p[0],team:p[1],line:p[2],id:i,full:PREMIER_FULL_NAMES[i]});premierAvailableIds.add(i);ok++}
    catch(e){failed++;premierSetStatus(i,'Nema pouzdanih podataka: '+String(e.message||e));}
    done++;
    if(progress)progress.textContent='Obrađeno '+done+' / 31 · uspješno '+ok+' · bez podataka '+failed;
   }
  });
  await Promise.all(workers);
- if(progress)progress.textContent='Završeno: '+ok+' procjena dostupno · '+failed+' igrača bez dovoljno podataka. Izvor: DARKO gdje je dostupan; inače ESPN, aktualna sezona.';
+ renderPremierOffer();
+ if(progress)progress.textContent='Prikazano '+ok+' igrača s dostupnom procjenom. '+failed+' bez podataka automatski je uklonjeno.';
  if(btn)btn.disabled=false;
  premierRunning=false;
 }

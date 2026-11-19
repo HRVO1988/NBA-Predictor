@@ -1,0 +1,21 @@
+{
+  "id": "./",
+  "name": "NBA Predictor",
+  "short_name": "NBA Predictor",
+  "description": "NBA utakmice, rezultati uživo i usporedba poena s granicama.",
+  "lang": "hr",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#10131c",
+  "theme_color": "#191f2e",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

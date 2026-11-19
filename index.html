@@ -295,8 +295,8 @@ async function refreshPredictionHistory(){
  const items=readPredictionHistory(),pending=items.filter(x=>x.status==='PENDING'&&x.athleteId);
  if(!pending.length){renderPredictionHistory();return}
  try{
-  const data=await fetchScoreboard(),events=data.events||[];
   for(const pick of pending){
+   let events=[];try{const day=await fetchTimeout(API+'/scoreboard?dates='+encodeURIComponent(pick.date)+'&limit=100');if(day.ok)events=(await day.json()).events||[]}catch(e){}
    const candidates=events.filter(g=>/final|završeno|ended/i.test(String(g.competitions?.[0]?.status?.type?.shortDetail||'')));
    for(const game of candidates){
     if(!game.id)continue;

@@ -322,7 +322,31 @@ const PREMIER_MATCHUP_PTS={
  "Keldon Johnson":12.4,"Devin Vassell":12.4,"Julian Champagnie":10.7,
  "Rui Hachimura":10.5,"Derrick Jones Jr.":9.3,"Brook Lopez":10.2
 };
+let dropCoverageRows=null,dropCoverageLoadedAt=0;
+async function loadDropCoverageRows(){
+ if(dropCoverageRows&&Date.now()-dropCoverageLoadedAt<5*60*1000)return dropCoverageRows;
+ const response=await fetchTimeout('https://thedropcoverage.com/data/projections.json',12000);
+ if(!response.ok)throw Error('Drop Coverage nije dostupan');
+ const data=await response.json();
+ if(!Array.isArray(data.rows))throw Error('Drop Coverage format nije prepoznat');
+ dropCoverageRows=data.rows;dropCoverageLoadedAt=Date.now();return dropCoverageRows;
+}
+function matchDropCoveragePts(rows,fullName){
+ const norm=premierNormalize(fullName);
+ const found=rows.find(x=>x.stat==='PTS'&&premierNormalize(x.player)===norm&&Number.isFinite(Number(x.proj))&&Number(x.proj)>0);
+ return found||null;
+}
 async function premierOneProjection(p){
+ // 1) DARKO is preferred. 2) Free Drop Coverage JSON is the next source.
+ let dropRow=null;
+ try{const rows=await loadDropCoverageRows();dropRow=matchDropCoveragePts(rows,p.full)}catch(e){}
+ if(dropRow){
+  const value=Number(dropRow.proj);
+  const injury=injuryData.find(x=>premierNormalize(x.name)===premierNormalize(p.full));
+  premierRenderProjection(p,value,Number(dropRow.sigma)||0,Number(dropRow.minutes)||null,injury,0);
+  premierSetStatus(p.id,p.full+' · Drop Coverage PTS · '+(dropRow.team||'')+' vs '+(dropRow.opp||''));
+  return {projection:value,sd:Number(dropRow.sigma)||0,athlete:{name:p.full},injury,source:'Drop Coverage'};
+ }
  // 1) Use DARKO when an actual published player points estimate exists.
  const darkoPts=DARKO_PTS_20261117[p.full];
  const injury=injuryData.find(x=>premierNormalize(x.name)===premierNormalize(p.full));

@@ -21,19 +21,19 @@
 <main>
 <nav>
 <button class="active" onclick="show('top',this)">Pregled</button>
-<button onclick="show('daily',this)">TOP 5 danas</button><button onclick="show('games',this)">Utakmice</button>
+<button onclick="show('games',this)">Utakmice</button>
 <button onclick="show('players',this)">Igrači</button>
 <button onclick="show('predict',this)">Predikcija</button>
 <button onclick="show('premier',this)">Premier ponuda</button><button onclick="show('history',this)">Povijest predikcija</button>
-<button onclick="show('lines',this)">Linije</button><button onclick="show('live',this)">Uživo poeni</button>
-<button onclick="show('injuries',this)">Ozljede</button>
+<button onclick="show('live',this)">Uživo poeni</button>
+
 </nav>
 <section id="top" class="section active">
 <h2>🏀 NBA danas</h2><p class="muted" id="updated">Učitavam najnovije podatke…</p>
 <div id="todayGames"></div>
 <div class="notice">Raspored i rezultati: ESPN. Podaci se osvježavaju pri otvaranju stranice. Statističke procjene i kladioničarske granice nisu službeni podaci.</div>
 </section>
-<section id="daily" class="section"><h2>🏀 TOP 5 prognoza za večeras</h2><p class="muted" id="dailyDate">Učitavam današnje utakmice…</p><div class="notice">Pet igrača s najvećom procjenom poena za večerašnje utakmice. Uz svakog unesi Premierovu marginu i odmah vidi razliku OVER/UNDER.</div><button class="action" onclick="loadDailyPicks(true)">Osvježi sve utakmice</button><div id="dailyPicks"><div class="card">Učitavam statistiku igrača…</div></div></section>
+
 <section id="games" class="section"><h2>📅 NBA utakmice</h2><p class="muted">Stvarni raspored, rezultati i status utakmica.</p><div id="allGames"></div></section>
 <section id="players" class="section">
 <h2>🔎 Stvarna statistika igrača</h2>
@@ -63,8 +63,8 @@
 <button class="action" onclick="loadLivePlayerPoints()">Osvježi poene igrača</button>
 <div class="notice">Premier granicu i kvote treba osvježiti iz službene ponude; javni Premier feed nije potvrđen. 1 = manje, 2 = više.</div>
 <div id="livePlayerPoints"><div class="card">Učitavam utakmice…</div></div>
-</section><section id="lines" class="section"><h2>📊 Usporedba granice</h2><div class="card"><label>Vrsta statistike</label><select id="statType"><option>Poeni</option><option>Skokovi</option><option>Asistencije</option></select><label>Granica kladionice</label><input id="line" type="number" step="0.5" placeholder="Npr. 25.5"><label>Tvoja procjena</label><input id="estimate" type="number" step="0.5" placeholder="Npr. 28"><button class="action" onclick="compare()">Usporedi procjenu</button><div id="comparison"></div></div><p class="muted">Usporedba prikazuje samo matematičku razliku unesenih vrijednosti.</p></section>
-<section id="injuries" class="section"><h2>🚑 Ozljede i status igrača</h2><p class="muted">Najnoviji dostupni izvještaji.</p><div id="injuryList">Učitavam izvještaje…</div></section>
+</section>
+
 <footer>NBA PREDICTOR<br>Informativni statistički alat. Nema jamstva dobitka.</footer>
 </main>
 <script>
@@ -465,7 +465,7 @@ async function calculatePremierPredictions(){
  premierRunning=false;
 }
 function compare(){const l=document.getElementById('line').value,e=document.getElementById('estimate').value,res=document.getElementById('comparison');if(l===''||e===''){res.innerHTML='<p class="orange">Unesi obje vrijednosti.</p>';return}const d=Number(e)-Number(l);res.innerHTML='<div class="card"><h3>Rezultat usporedbe</h3><p>Statistika: '+esc(document.getElementById('statType').value)+'</p><p>Razlika: <b class="'+(d>0?'green':d<0?'orange':'')+'">'+(d>0?'+':'')+d.toFixed(1)+'</b></p><p>'+(d>0?'Procjena je iznad granice.':d<0?'Procjena je ispod granice.':'Procjena je jednaka granici.')+'</p></div>'}
-loadGames();loadInjuries();loadDailyPicks();renderPremierOffer();
+loadGames();renderPremierOffer();
 // Automatski pokreni izračun pri otvaranju aplikacije, bez čekanja na ponovni klik kartice.
 window.addEventListener('load',()=>{if(!premierAutoStarted){premierAutoStarted=true;calculatePremierPredictions()}});
 </script>

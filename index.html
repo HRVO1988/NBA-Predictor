@@ -24,7 +24,7 @@
 <button onclick="show('daily',this)">TOP 5 danas</button><button onclick="show('games',this)">Utakmice</button>
 <button onclick="show('players',this)">Igrači</button>
 <button onclick="show('predict',this)">Predikcija</button>
-<button onclick="show('lines',this)">Linije</button>
+<button onclick="show('lines',this)">Linije</button><button onclick="show('live',this)">Uživo poeni</button>
 <button onclick="show('injuries',this)">Ozljede</button>
 </nav>
 <section id="top" class="section active">
@@ -54,7 +54,13 @@
 <div id="predictionResult"></div>
 <div class="notice">Procjena je statistički model, ne sigurna prognoza. Ako izvor ne daje podatak o obrani, ozljedama ili zamjeni, aplikacija će to označiti umjesto da izmišlja vrijednosti.</div>
 </section>
-<section id="lines" class="section"><h2>📊 Usporedba granice</h2><div class="card"><label>Vrsta statistike</label><select id="statType"><option>Poeni</option><option>Skokovi</option><option>Asistencije</option></select><label>Granica kladionice</label><input id="line" type="number" step="0.5" placeholder="Npr. 25.5"><label>Tvoja procjena</label><input id="estimate" type="number" step="0.5" placeholder="Npr. 28"><button class="action" onclick="compare()">Usporedi procjenu</button><div id="comparison"></div></div><p class="muted">Usporedba prikazuje samo matematičku razliku unesenih vrijednosti.</p></section>
+<section id="live" class="section">
+<h2>📡 Stvarni poeni igrača uživo</h2>
+<p class="muted">Poeni se čitaju iz NBA boxscorea. Osvježi tijekom utakmice.</p>
+<button class="action" onclick="loadLivePlayerPoints()">Osvježi poene igrača</button>
+<div class="notice">Premier granicu i kvote trenutno unosiš ručno jer nije potvrđen javni Premier feed/API. 1 = više, 2 = manje. Aplikacija neće prikazati izmišljene kvote.</div>
+<div id="livePlayerPoints"><div class="card">Učitavam utakmice…</div></div>
+</section><section id="lines" class="section"><h2>📊 Usporedba granice</h2><div class="card"><label>Vrsta statistike</label><select id="statType"><option>Poeni</option><option>Skokovi</option><option>Asistencije</option></select><label>Granica kladionice</label><input id="line" type="number" step="0.5" placeholder="Npr. 25.5"><label>Tvoja procjena</label><input id="estimate" type="number" step="0.5" placeholder="Npr. 28"><button class="action" onclick="compare()">Usporedi procjenu</button><div id="comparison"></div></div><p class="muted">Usporedba prikazuje samo matematičku razliku unesenih vrijednosti.</p></section>
 <section id="injuries" class="section"><h2>🚑 Ozljede i status igrača</h2><p class="muted">Najnoviji dostupni izvještaji.</p><div id="injuryList">Učitavam izvještaje…</div></section>
 <footer>NBA PREDICTOR<br>Informativni statistički alat. Nema jamstva dobitka.</footer>
 </main>
@@ -196,6 +202,49 @@ async function loadDailyPicks(force=false){
  finally{dailyLoading=false}
 }
 
+
+async function loadLivePlayerPoints(){
+ const box=document.getElementById('livePlayerPoints');
+ box.innerHTML='<div class="card">Učitavam stvarne statistike igrača…</div>';
+ try{
+  const data=await fetchScoreboard(),events=data.events||[];
+  const active=events.filter(g=>{
+   const t=String(g.competitions?.[0]?.status?.type?.state||'').toLowerCase();
+   const d=String(g.competitions?.[0]?.status?.type?.shortDetail||'').toLowerCase();
+   return t==='in'||t==='post'||/in progress|final|half|quarter|ot|ended/.test(d);
+  });
+  if(!active.length){box.innerHTML='<div class="card">Trenutno nema NBA utakmica uživo ni završenih utakmica na današnjem rasporedu.</div>';return}
+  const summaries=await Promise.all(active.map(async g=>{
+   try{const id=g.id||g.uid;if(!id)return null;const r=await fetchTimeout(API+'/summary?event='+encodeURIComponent(id),15000);if(!r.ok)throw Error();return {game:g,data:await r.json()}}
+   catch(e){return {game:g,data:null}}
+  }));
+  const rows=[];
+  for(const item of summaries){
+   if(!item||!item.data)continue;
+   const c=item.game.competitions?.[0],teams=c?.competitors||[];
+   const matchup=teams.map(t=>t.team?.displayName||t.team?.name||'').filter(Boolean).join(' – ');
+   for(const team of (item.data.boxscore?.players||[])){
+    const teamName=team.team?.displayName||team.team?.name||'';
+    for(const group of (team.statistics||[])){
+     const labels=group.names||group.labels||[],idx=labels.findIndex(x=>/^(pts|points)$/i.test(String(x)));
+     if(idx<0)continue;
+     for(const entry of (group.athletes||[])){
+      const athlete=entry.athlete||{},pts=Number(String(entry.stats?.[idx]??'').replace(/[^0-9.-]/g,''));
+      if(athlete.displayName&&Number.isFinite(pts))rows.push({id:String(athlete.id||athlete.uid||athlete.displayName),name:athlete.displayName,team:teamName,matchup,pts,status:c?.status?.type?.shortDetail||'Uživo'});
+     }
+    }
+   }
+  }
+  if(!rows.length){box.innerHTML='<div class="card orange">NBA servis trenutno nije vratio pojedinačni boxscore. Pokušaj ponovno tijekom utakmice.</div>';return}
+  rows.sort((a,b)=>a.matchup.localeCompare(b.matchup)||b.pts-a.pts);
+  box.innerHTML=rows.map(p=>'<div class="card live-player"><b>'+esc(p.name)+'</b><div class="muted">'+esc(p.team)+' · '+esc(p.matchup)+' · '+esc(p.status)+'</div><div class="stat"><span>Stvarni poeni</span><b class="green">'+p.pts+'</b></div><div class="stat"><span>Premier granica</span><input class="pick-line live-line" type="number" step="0.5" placeholder="npr. 22.5"></div><div class="stat"><span>Kvota 1 (više)</span><input class="pick-line" type="number" step="0.01" placeholder="npr. 1.85"></div><div class="stat"><span>Kvota 2 (manje)</span><input class="pick-line" type="number" step="0.01" placeholder="npr. 1.85"></div><div class="stat"><span>Razlika poena − granica</span><b class="live-diff">—</b></div><button class="action" type="button" onclick="calculateLiveDifference(this)">Izračunaj razliku</button></div>').join('');
+ }catch(e){box.innerHTML='<div class="card orange">Nije moguće dohvatiti NBA boxscore. Pokušaj ponovno.</div>'}
+}
+function calculateLiveDifference(button){
+ const card=button.closest('.live-player'),field=card.querySelector('.live-line'),line=Number(field.value),pts=Number(card.querySelector('.green').textContent),out=card.querySelector('.live-diff');
+ if(field.value===''||!Number.isFinite(line)){out.textContent='Unesi granicu';out.className='live-diff warning';return}
+ const diff=pts-line;out.textContent=(diff>0?'+':'')+diff.toFixed(1)+' · '+(diff>0?'VIŠE':diff<0?'MANJE':'TOČNO');out.className='live-diff '+(diff>0?'green':diff<0?'orange':'warning');
+}
 function compare(){const l=document.getElementById('line').value,e=document.getElementById('estimate').value,res=document.getElementById('comparison');if(l===''||e===''){res.innerHTML='<p class="orange">Unesi obje vrijednosti.</p>';return}const d=Number(e)-Number(l);res.innerHTML='<div class="card"><h3>Rezultat usporedbe</h3><p>Statistika: '+esc(document.getElementById('statType').value)+'</p><p>Razlika: <b class="'+(d>0?'green':d<0?'orange':'')+'">'+(d>0?'+':'')+d.toFixed(1)+'</b></p><p>'+(d>0?'Procjena je iznad granice.':d<0?'Procjena je ispod granice.':'Procjena je jednaka granici.')+'</p></div>'}
 loadGames();loadInjuries();loadDailyPicks();
 </script>

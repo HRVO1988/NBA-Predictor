@@ -412,7 +412,7 @@ function matchDropCoveragePts(rows,fullName){
  return found||null;
 }
 // Team codes used in the Premier offer; ESPN scoreboard supplies the live team IDs and opponents.
-const PREMIER_TEAM_ALIASES={MIL:['MIL','MILWAUKEE'],POR:['POR','PORTLAND'],MIN:['MIN','MINNESOTA'],NY:['NY','NYK','NEW YORK'],SA:['SA','SAS','SAN ANTONIO'],LAC:['LAC','LA CLIPPERS','LOS ANGELES CLIPPERS']};
+const PREMIER_TEAM_ALIASES={MIL:['MIL','MILWAUKEE','MILWAUKEEBUCKS'],POR:['POR','PORTLAND','PORTLANDTRAILBLAZERS'],MIN:['MIN','MINNESOTA','MINNESOTATIMBERWOLVES'],NY:['NY','NYK','NEWYORK','NEWYORKKNICKS'],SA:['SA','SAS','SANANTONIO','SANANTONIOSPURS'],LAC:['LAC','LACLIPPERS','LOSANGELESCLIPPERS']};
 let premierTonightGames=null,premierRosterCache={};
 function premierTeamMatches(code,abbr,name){
  const aliases=PREMIER_TEAM_ALIASES[code]||[code];

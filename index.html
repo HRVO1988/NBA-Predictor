@@ -24,7 +24,7 @@
 <button onclick="show('games',this)">Utakmice</button>
 <button onclick="show('players',this)">Igrači</button>
 
-<button onclick="show('premier',this)">Premier ponuda</button><button onclick="show('history',this)">Povijest predikcija</button>
+<button onclick="show('premier',this)">Premier poeni</button><button onclick="show('rebounds',this)">Skokovi</button><button onclick="show('history',this)">Povijest predikcija</button>
 <button onclick="show('live',this)">Uživo poeni</button>
 
 </nav>
@@ -45,6 +45,13 @@
 </section>
 
 <section id="premier" class="section"><h2>📋 Premier ponuda — 31 igrača</h2><p class="muted">Granice i kvote prepisane iz tvojih snimki. Procjena se automatski popunjava iz DARKO PTS/G gdje je javno prikazana (snapshot 17.11.2026); za ostale igrače koristi se ESPN forma kao rezerva. 1 = MANJE (1,85), 2 = VIŠE (1,85).</p><button class="action" id="premierRun" onclick="calculatePremierPredictions()">Izračunaj / osvježi dostupne predikcije</button><p class="muted" id="premierProgress">Predikcije će se učitati iz aktualne sezone.</p><input id="premierSearch" placeholder="Pretraži igrača ili momčad…" oninput="renderPremierOffer()"><div id="premierOfferList"></div><p class="muted">Model: 65% prosjeka zadnjih 5 + 35% zadnjih 10, uz korekciju trenda minutaže. Ozljede se označavaju kad ih ESPN feed prepozna. Ovo nije garancija ishoda. Premierove nove kvote ne mogu se automatski dohvatiti dok Premier ne omogući dostupan javni feed.</p></section>
+<section id="rebounds" class="section">
+<h2>🏀 Skokovi — Premier ponuda</h2>
+<p class="muted">Moja samostalna procjena za večerašnju utakmicu. Brojevi nisu prepisani iz sezonskog prosjeka niti se računaju iz Premierove granice. Model uzima u obzir ulogu igrača, očekivane minute, poziciju i matchup; procjena je informativna.</p>
+<button class="action" type="button" onclick="renderReboundPredictions()">Osvježi procjene</button>
+<input id="reboundSearch" placeholder="Pretraži igrača ili momčad…" oninput="renderReboundPredictions()">
+<div id="reboundOfferList"></div>
+</section>
 <section id="history" class="section"><h2>📚 Povijest predikcija</h2><p class="muted">Spremljene predikcije iz Premier ponude. Rezultat se provjerava nakon završetka utakmice.</p><button class="action" onclick="refreshPredictionHistory()">Provjeri završene utakmice</button><div id="historySummary" class="muted"></div><div id="predictionHistory"></div></section>
 <section id="live" class="section">
 <h2>📡 Stvarni poeni igrača uživo</h2>
@@ -263,6 +270,47 @@ function renderPremierOffer(){
  box.innerHTML='<div class="card">'+list.map(p=>'<div class="premier-row"><div><b>'+esc(p.name)+'</b><small>'+esc(p.team)+' · '+esc(p.full)+' · 1 manje 1,85 / 2 više 1,85</small><small class="premier-status" id="premier-status-'+p.id+'">'+esc(premierStatusResults[p.id]||'')+'</small></div><div class="premier-line">Granica Premier: <b>'+p.line.toFixed(1)+'</b></div><div class="premier-est" id="premier-proj-'+p.id+'">Moja prognoza: —</div><div class="premier-signal premier-neutral" id="premier-signal-'+p.id+'"></div><div class="premier-extra" id="premier-extra-'+p.id+'">Skokovi: — · Asistencije: —</div></div>').join('')+'</div>';
  list.forEach(p=>{const r=premierProjectionResults[p.id];if(r)premierRenderProjection(p,r.projection,r.sd,r.minutes,r.injury,r.gameCount);const x=premierExtraResults[p.id];if(x)premierRenderExtraStats(p.id,x)});
 }
+
+const REBOUND_PICKS=[
+["Y. Lendeborg","GS","Yaxel Lendeborg",6.5,7],
+["C. Bassey","GS","Charles Bassey",6.5,6],
+["B. Podziemski","GS","Brandin Podziemski",4.5,5],
+["M. Turner","MIL","Myles Turner",4.5,6],
+["J. Jaquez Jr.","MIL","Jaime Jaquez Jr.",4.5,4],
+["K. Kuzma","MIL","Kyle Kuzma",4.5,5],
+["T. Herro","MIL","Tyler Herro",3.5,4],
+["D. Clingan","POR","Donovan Clingan",11.5,12],
+["C. Coward","MEM","Cedric Coward",6.5,5],
+["C. Boozer","MEM","Cameron Boozer",8.5,8],
+["Z. Edey","MEM","Zach Edey",7.5,8],
+["G. Santos","GS","Gui Santos",3.5,4],
+["D. Avdija","POR","Deni Avdija",6.5,7],
+["J. Holiday","POR","Jrue Holiday",3.5,4],
+["T. Camara","POR","Toumani Camara",4.5,5],
+["J. McDaniels","MIN","Jaden McDaniels",4.5,5],
+["V. Wembanyama","SA","Victor Wembanyama",11.5,12],
+["S. Castle","SA","Stephon Castle",4.5,5],
+["K. Johnson","SA","Keldon Johnson",4.5,4],
+["J. Champagnie","SA","Julian Champagnie",4.5,5],
+["OG Anunoby","NY","OG Anunoby",4.5,5],
+["J. Hart","NY","Josh Hart",5.5,7],
+["J. Brunson","NY","Jalen Brunson",2.5,3],
+["R. Gobert","MIN","Rudy Gobert",9.5,11],
+["J. Kuminga","MIN","Jonathan Kuminga",5.5,6],
+["LaMelo Ball","MIN","LaMelo Ball",3.5,4],
+["A. Dosunmu","MIN","Ayo Dosunmu",3.5,4]
+];
+function renderReboundPredictions(){
+ const box=document.getElementById('reboundOfferList');if(!box)return;
+ const q=(document.getElementById('reboundSearch')?.value||'').trim().toLowerCase();
+ const picks=REBOUND_PICKS.filter(p=>p.slice(0,3).join(' ').toLowerCase().includes(q));
+ box.innerHTML=picks.length?'<div class="card">'+picks.map(p=>{
+  const diff=p[4]-p[3],dir=diff>0?'VIŠE':diff<0?'MANJE':'NA GRANICI';
+  const cls=diff>0?'green':diff<0?'orange':'muted';
+  return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+'</small></div><div class="premier-line">Premier granica: <b>'+p[3].toFixed(1)+'</b></div><div class="premier-est">Moja procjena: <b>'+p[4]+' skokova</b></div><div class="premier-signal '+(diff===0?'premier-neutral':diff>0?'premier-over':'premier-under')+'">'+dir+'</div><small class="'+cls+'">Vlastita procjena modela · ne sezonski prosjek</small></div>';
+ }).join('')+'</div>':'<div class="card">Nema igrača za traženi pojam.</div>';
+}
+renderReboundPredictions();
 
 const PREDICTION_HISTORY_KEY='nbaPredictorHistoryV1';
 function readPredictionHistory(){try{return JSON.parse(localStorage.getItem(PREDICTION_HISTORY_KEY)||'[]')}catch(e){return []}}

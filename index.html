@@ -55,12 +55,12 @@
 <div id="predictionResult"></div>
 <div class="notice">Procjena je statistički model, ne sigurna prognoza. Ako izvor ne daje podatak o obrani, ozljedama ili zamjeni, aplikacija će to označiti umjesto da izmišlja vrijednosti.</div>
 </section>
-<section id="premier" class="section"><h2>📋 Premier ponuda — NBA poeni</h2><p class="muted">Prepisano iz tvojih 7 snimki zaslona. 1 = MANJE, 2 = VIŠE. Kvota obje opcije: 1,85. Unesi svoju/modelsku procjenu u polje da dobiješ usporedbu.</p><input id="premierSearch" placeholder="Pretraži igrača ili momčad…" oninput="renderPremierOffer()"><div id="premierOfferList"></div><p class="muted">Ove su granice zabilježene iz dostavljenih snimki; nisu automatski dohvaćene s Premierove stranice. Procjena nije jamstvo ishoda.</p></section>
+<section id="premier" class="section"><h2>📋 Premier ponuda — 31 igrača</h2><p class="muted">Granice i kvote prepisane iz tvojih snimki. 1 = MANJE (1,85), 2 = VIŠE (1,85). Aplikacija automatski traži aktualne ESPN game-logove i računa procjenu na temelju zadnjih 10 nastupa.</p><button class="action" id="premierRun" onclick="calculatePremierPredictions()">Izračunaj / osvježi svih 31 predikcija</button><p class="muted" id="premierProgress">Predikcije će se učitati iz aktualne sezone.</p><input id="premierSearch" placeholder="Pretraži igrača ili momčad…" oninput="renderPremierOffer()"><div id="premierOfferList"></div><p class="muted">Model: 65% prosjeka zadnjih 5 + 35% zadnjih 10, uz korekciju trenda minutaže. Ozljede se označavaju kad ih ESPN feed prepozna. Ovo nije garancija ishoda. Premierove nove kvote ne mogu se automatski dohvatiti dok Premier ne omogući dostupan javni feed.</p></section>
 <section id="live" class="section">
 <h2>📡 Stvarni poeni igrača uživo</h2>
 <p class="muted">Poeni se čitaju iz NBA boxscorea. Osvježi tijekom utakmice.</p>
 <button class="action" onclick="loadLivePlayerPoints()">Osvježi poene igrača</button>
-<div class="notice">Premier granicu i kvote trenutno unosiš ručno jer nije potvrđen javni Premier feed/API. 1 = više, 2 = manje. Aplikacija neće prikazati izmišljene kvote.</div>
+<div class="notice">Premier granicu i kvote treba osvježiti iz službene ponude; javni Premier feed nije potvrđen. 1 = manje, 2 = više.</div>
 <div id="livePlayerPoints"><div class="card">Učitavam utakmice…</div></div>
 </section><section id="lines" class="section"><h2>📊 Usporedba granice</h2><div class="card"><label>Vrsta statistike</label><select id="statType"><option>Poeni</option><option>Skokovi</option><option>Asistencije</option></select><label>Granica kladionice</label><input id="line" type="number" step="0.5" placeholder="Npr. 25.5"><label>Tvoja procjena</label><input id="estimate" type="number" step="0.5" placeholder="Npr. 28"><button class="action" onclick="compare()">Usporedi procjenu</button><div id="comparison"></div></div><p class="muted">Usporedba prikazuje samo matematičku razliku unesenih vrijednosti.</p></section>
 <section id="injuries" class="section"><h2>🚑 Ozljede i status igrača</h2><p class="muted">Najnoviji dostupni izvještaji.</p><div id="injuryList">Učitavam izvještaje…</div></section>
@@ -256,23 +256,98 @@ const PREMIER_PLAYERS=[
 ["V. Wembanyama","SA",29.5],["S. Castle","SA",17.5],["Kel. Johnson","SA",11.5],["D. Fox","SA",14.5],["D. Vassell","SA",11.5],["J. Champagnie","SA",10.5],
 ["D. Garland","LAC",19.5],["R. Hachimura","LAC",12.5],["D. Jones Jr.","LAC",8.5],["B. Lopez","LAC",11.5]
 ];
+
+const PREMIER_FULL_NAMES=[
+"Tyler Herro","Jaime Jaquez Jr.","Kyle Kuzma","Brayden Burries","Myles Turner",
+"Damian Lillard","Deni Avdija","Jrue Holiday","Toumani Camara","Donovan Clingan",
+"LaMelo Ball","Jaden McDaniels","Jonathan Kuminga","Ayo Dosunmu","Rudy Gobert",
+"Jalen Brunson","Mikal Bridges","OG Anunoby","Karl-Anthony Towns","Josh Hart","Landry Shamet",
+"Victor Wembanyama","Stephon Castle","Keldon Johnson","De'Aaron Fox","Devin Vassell","Julian Champagnie",
+"Darius Garland","Rui Hachimura","Derrick Jones Jr.","Brook Lopez"
+];
+let premierRunning=false;
 function renderPremierOffer(){
  const box=document.getElementById('premierOfferList');if(!box)return;
  const q=(document.getElementById('premierSearch')?.value||'').trim().toLowerCase();
- const list=PREMIER_PLAYERS.map((p,i)=>({...{name:p[0],team:p[1],line:p[2],id:i}})).filter(p=>(p.name+' '+p.team).toLowerCase().includes(q));
- box.innerHTML='<div class="card"><div class="muted">Igrač / oznaka · Premier granica · Tvoja procjena</div>'+list.map(p=>'<div class="premier-row"><div><b>'+esc(p.name)+'</b><small>'+esc(p.team)+' · manje 1,85 / više 1,85</small></div><b>'+p.line.toFixed(1)+'</b><input class="premier-est" type="number" step="0.1" placeholder="Procjena" aria-label="Procjena za '+esc(p.name)+'" data-id="'+p.id+'" oninput="updatePremierEstimate(this)"><div class="premier-signal premier-neutral" id="premier-signal-'+p.id+'">Unesi procjenu</div></div>').join('')+'</div>';
- try{list.forEach(p=>{const saved=localStorage.getItem('nbaPremierEstimate_'+p.id);if(saved!==null){const input=box.querySelector('[data-id="'+p.id+'"]');if(input){input.value=saved;updatePremierEstimate(input)}}})}catch(e){}
+ const list=PREMIER_PLAYERS.map((p,i)=>({name:p[0],team:p[1],line:p[2],id:i,full:PREMIER_FULL_NAMES[i]})).filter(p=>(p.name+' '+p.team+' '+p.full).toLowerCase().includes(q));
+ box.innerHTML='<div class="card">'+list.map(p=>'<div class="premier-row"><div><b>'+esc(p.name)+'</b><small>'+esc(p.team)+' · '+esc(p.full)+' · 1 manje 1,85 / 2 više 1,85</small><small class="premier-status" id="premier-status-'+p.id+'">Čeka analizu</small></div><b>'+p.line.toFixed(1)+'</b><div class="premier-est" id="premier-proj-'+p.id+'">—</div><div class="premier-signal premier-neutral" id="premier-signal-'+p.id+'">Nema procjene</div></div>').join('')+'</div>';
 }
-function updatePremierEstimate(input){
- const id=Number(input.dataset.id),p=PREMIER_PLAYERS[id],signal=document.getElementById('premier-signal-'+id);
- if(!p||!signal)return;
- const raw=input.value;
- try{if(raw==='')localStorage.removeItem('nbaPremierEstimate_'+id);else localStorage.setItem('nbaPremierEstimate_'+id,raw)}catch(e){}
- if(raw===''||!Number.isFinite(Number(raw))){signal.className='premier-signal premier-neutral';signal.textContent='Unesi procjenu';return}
- const d=Number(raw)-p[2];
- if(d>0.5){signal.className='premier-signal premier-over';signal.textContent='2 · VIŠE +'+d.toFixed(1)}
- else if(d< -0.5){signal.className='premier-signal premier-under';signal.textContent='1 · MANJE '+d.toFixed(1)}
- else{signal.className='premier-signal premier-neutral';signal.textContent='Bez razlike'}
+function premierSetStatus(id,msg){const el=document.getElementById('premier-status-'+id);if(el)el.textContent=msg}
+function premierRenderProjection(p,projection,sd,minutes,injury,gameCount){
+ const proj=document.getElementById('premier-proj-'+p.id),signal=document.getElementById('premier-signal-'+p.id);
+ if(!proj||!signal)return;
+ proj.innerHTML='<b>'+projection.toFixed(1)+'</b><small>±'+sd.toFixed(1)+' · '+gameCount+' utak.</small>';
+ const diff=projection-p.line;
+ if(diff>0.5){signal.className='premier-signal premier-over';signal.textContent='2 · VIŠE +'+diff.toFixed(1)}
+ else if(diff< -0.5){signal.className='premier-signal premier-under';signal.textContent='1 · MANJE '+diff.toFixed(1)}
+ else{signal.className='premier-signal premier-neutral';signal.textContent='Bez jasne razlike'}
+ if(injury&&isUnavailable(injury)){signal.className='premier-signal premier-under';signal.textContent='OUT · ne igrati';}
+ else if(injury&&isQuestionable(injury)){signal.textContent+=' · UPITAN';}
+}
+function premierNormalize(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'')}
+async function resolvePremierPlayer(fullName){
+ const cacheKey='nbaPremierAthlete_'+premierNormalize(fullName);
+ try{const cached=localStorage.getItem(cacheKey);if(cached)return {id:cached,name:fullName}}catch(e){}
+ const url='https://site.web.api.espn.com/apis/search/v2?region=us&lang=en&query='+encodeURIComponent(fullName)+'&limit=30';
+ const r=await fetchTimeout(url,15000);if(!r.ok)throw Error('ESPN pretraga nije dostupna');
+ const data=await r.json(),found=[],seen=new Set();
+ function scan(x){
+  if(!x||typeof x!=='object')return;
+  if(Array.isArray(x)){x.forEach(scan);return}
+  const name=x.displayName||x.fullName||x.name,id=x.id||(x.uid&&String(x.uid).split(':').pop());
+  if(name&&id&&!seen.has(String(id))){seen.add(String(id));found.push({id:String(id),name:String(name)})}
+  Object.values(x).forEach(v=>{if(v&&typeof v==='object')scan(v)});
+ }
+ scan(data);
+ const wanted=premierNormalize(fullName);
+ const ranked=found.map(x=>{const n=premierNormalize(x.name);let score=0;if(n===wanted)score+=100;if(n.includes(wanted)||wanted.includes(n))score+=50;const last=wanted.split(/(?=[A-Z])| /).filter(Boolean).slice(-1)[0];if(last&&n.endsWith(last))score+=20;return {...x,score}}).filter(x=>x.score>=20).sort((a,b)=>b.score-a.score);
+ if(!ranked.length)throw Error('ESPN nije pronašao '+fullName);
+ try{localStorage.setItem(cacheKey,ranked[0].id)}catch(e){}
+ return ranked[0];
+}
+async function premierOneProjection(p){
+ const athlete=await resolvePremierPlayer(p.full);
+ const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);
+ const log=await getRecentGames(athlete.id,season);
+ const vals=extractRecentMetric(log,'points'),mins=extractRecentMetric(log,'minutes');
+ if(vals.length<3)throw Error('Nema najmanje 3 utakmice u aktualnoj sezoni');
+ const last10=vals.slice(0,10),last5=last10.slice(0,5);
+ const avg10=last10.reduce((s,v)=>s+v,0)/last10.length;
+ const avg5=last5.reduce((s,v)=>s+v,0)/last5.length;
+ const min5=mins.length>=3?mins.slice(0,5).reduce((s,v)=>s+v,0)/Math.min(5,mins.length):null;
+ const min10=mins.length>=3?mins.slice(0,10).reduce((s,v)=>s+v,0)/Math.min(10,mins.length):null;
+ const minuteFactor=min5!==null&&min10>0?Math.max(.85,Math.min(1.15,min5/min10)):1;
+ const projection=(avg5*.65+avg10*.35)*minuteFactor;
+ const sd=Math.sqrt(last10.reduce((s,v)=>s+(v-avg10)**2,0)/last10.length)||1;
+ const injury=injuryData.find(x=>premierNormalize(x.name)===premierNormalize(athlete.name)||premierNormalize(x.name).includes(premierNormalize(p.name[0])));
+ premierRenderProjection(p,projection,sd,min5,injury,last10.length);
+ premierSetStatus(p.id,athlete.name+' · ESPN · '+(injury?injury.status:'status ozljede nije potvrđen'));
+ return {projection,sd,athlete,injury};
+}
+async function calculatePremierPredictions(){
+ if(premierRunning)return;
+ premierRunning=true;
+ const btn=document.getElementById('premierRun'),progress=document.getElementById('premierProgress');
+ if(btn)btn.disabled=true;
+ renderPremierOffer();
+ let done=0,ok=0,failed=0;
+ if(progress)progress.textContent='Obrađujem igrače… 0 / 31';
+ const workers=Array.from({length:3},async()=>{
+  while(true){
+   const i=done+failed+ok;
+   if(i>=PREMIER_PLAYERS.length)return;
+   const p=PREMIER_PLAYERS[i];
+   premierSetStatus(i,'Tražim ESPN podatke…');
+   try{await premierOneProjection({name:p[0],team:p[1],line:p[2],id:i,full:PREMIER_FULL_NAMES[i]});ok++}
+   catch(e){failed++;premierSetStatus(i,'Nema pouzdanih podataka: '+String(e.message||e));}
+   done++;
+   if(progress)progress.textContent='Obrađeno '+done+' / 31 · uspješno '+ok+' · bez podataka '+failed;
+  }
+ });
+ await Promise.all(workers);
+ if(progress)progress.textContent='Završeno: '+ok+' procjena dostupno · '+failed+' igrača bez dovoljno podataka. Izvor: ESPN, aktualna sezona.';
+ if(btn)btn.disabled=false;
+ premierRunning=false;
 }
 function compare(){const l=document.getElementById('line').value,e=document.getElementById('estimate').value,res=document.getElementById('comparison');if(l===''||e===''){res.innerHTML='<p class="orange">Unesi obje vrijednosti.</p>';return}const d=Number(e)-Number(l);res.innerHTML='<div class="card"><h3>Rezultat usporedbe</h3><p>Statistika: '+esc(document.getElementById('statType').value)+'</p><p>Razlika: <b class="'+(d>0?'green':d<0?'orange':'')+'">'+(d>0?'+':'')+d.toFixed(1)+'</b></p><p>'+(d>0?'Procjena je iznad granice.':d<0?'Procjena je ispod granice.':'Procjena je jednaka granici.')+'</p></div>'}
 loadGames();loadInjuries();loadDailyPicks();renderPremierOffer();

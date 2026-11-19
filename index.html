@@ -271,14 +271,14 @@ function savePremierHistory(p,projection,athleteId){
  const items=readPredictionHistory(),today=nbaLocalDate(),choice=projection>p.line+0.5?'OVER':projection<p.line-0.5?'UNDER':'NO_EDGE';
  const key=today+'|'+premierNormalize(p.full)+'|'+p.line;
  if(items.some(x=>x.key===key))return;
- items.push({key,date:today,name:p.full,display:p.name,team:p.team,line:p.line,projection:Number(projection.toFixed(1)),choice,athleteId:athleteId||'',status:'PENDING',actual:null,createdAt:new Date().toISOString()});
+ items.push({key,date:today,name:p.full,display:p.name,team:p.team,line:p.line,projection:Math.round(projection),choice,athleteId:athleteId||'',status:'PENDING',actual:null,createdAt:new Date().toISOString()});
  writePredictionHistory(items);
 }
 function renderPredictionHistory(){
  const box=document.getElementById('predictionHistory'),summary=document.getElementById('historySummary');if(!box)return;
  const items=readPredictionHistory().slice().reverse(),won=items.filter(x=>x.status==='WON').length,lost=items.filter(x=>x.status==='LOST').length,pending=items.filter(x=>x.status==='PENDING').length;
  summary.textContent='Ukupno: '+items.length+' · Uspješne: '+won+' · Neuspješne: '+lost+' · Čekaju rezultat: '+pending;
- box.innerHTML=items.length?items.map(x=>'<div class="card"><b>'+esc(x.display||x.name)+'</b><div class="muted">'+esc(x.date)+' · '+esc(x.team)+'</div><div class="stat"><span>Procjena / granica</span><b>'+Number(x.projection).toFixed(1)+' / '+Number(x.line).toFixed(1)+'</b></div><div class="stat"><span>Tip</span><b>'+esc(x.choice)+'</b></div><div class="stat"><span>Stvarni poeni</span><b>'+(x.actual===null?'—':x.actual)+'</b></div><p class="'+(x.status==='WON'?'green':x.status==='LOST'?'orange':'muted')+'">'+(x.status==='WON'?'✓ USPJEŠNA':x.status==='LOST'?'✕ NEUSPJEŠNA':x.status==='NO_EDGE'?'BEZ PREDNOSTI':'ČEKA ZAVRŠETAK UTAKMICE')+'</p></div>').join(''):'<div class="card">Još nema spremljenih predikcija. Prvo izračunaj Premier ponudu.</div>';
+ box.innerHTML=items.length?items.map(x=>'<div class="card"><b>'+esc(x.display||x.name)+'</b><div class="muted">'+esc(x.date)+' · '+esc(x.team)+'</div><div class="stat"><span>Procjena / granica</span><b>'+Math.round(Number(x.projection))+' / '+Number(x.line).toFixed(1)+'</b></div><div class="stat"><span>Tip</span><b>'+esc(x.choice)+'</b></div><div class="stat"><span>Stvarni poeni</span><b>'+(x.actual===null?'—':x.actual)+'</b></div><p class="'+(x.status==='WON'?'green':x.status==='LOST'?'orange':'muted')+'">'+(x.status==='WON'?'✓ USPJEŠNA':x.status==='LOST'?'✕ NEUSPJEŠNA':x.status==='NO_EDGE'?'BEZ PREDNOSTI':'ČEKA ZAVRŠETAK UTAKMICE')+'</p></div>').join(''):'<div class="card">Još nema spremljenih predikcija. Prvo izračunaj Premier ponudu.</div>';
 }
 async function refreshPredictionHistory(){
  const summary=document.getElementById('historySummary');if(summary)summary.textContent='Provjeravam završene utakmice…';
@@ -314,7 +314,7 @@ function premierRenderProjection(p,projection,sd,minutes,injury,gameCount){
  const proj=document.getElementById('premier-proj-'+p.id),signal=document.getElementById('premier-signal-'+p.id);
  premierProjectionResults[p.id]={projection,sd,minutes,injury,gameCount};
  if(!proj||!signal)return;
- proj.innerHTML='<b>'+projection.toFixed(1)+'</b><small>±'+sd.toFixed(1)+' · '+gameCount+' utak.</small>';
+ proj.innerHTML='<b>'+Math.round(projection)+'</b><small>večeras · analiza '+gameCount+' utak.</small>';
  const diff=projection-p.line;
  if(diff>0.5){signal.className='premier-signal premier-over';signal.textContent='2 · VIŠE +'+diff.toFixed(1)}
  else if(diff< -0.5){signal.className='premier-signal premier-under';signal.textContent='1 · MANJE '+diff.toFixed(1)}
@@ -411,55 +411,86 @@ function matchDropCoveragePts(rows,fullName){
  const found=rows.find(x=>x.stat==='PTS'&&premierNormalize(x.player)===norm&&Number.isFinite(Number(x.proj))&&Number(x.proj)>0);
  return found||null;
 }
+// Team codes used in the Premier offer; ESPN scoreboard supplies the live team IDs and opponents.
+const PREMIER_TEAM_ALIASES={MIL:['MIL','MILWAUKEE'],POR:['POR','PORTLAND'],MIN:['MIN','MINNESOTA'],NY:['NY','NYK','NEW YORK'],SA:['SA','SAS','SAN ANTONIO'],LAC:['LAC','LA CLIPPERS','LOS ANGELES CLIPPERS']};
+let premierTonightGames=null,premierRosterCache={};
+function premierTeamMatches(code,abbr,name){
+ const aliases=PREMIER_TEAM_ALIASES[code]||[code];
+ const values=[abbr,name].map(x=>String(x||'').toUpperCase().replace(/[^A-Z]/g,''));
+ return aliases.some(x=>values.includes(String(x).toUpperCase().replace(/[^A-Z]/g,'')));
+}
+async function loadPremierTonightGames(){
+ if(premierTonightGames)return premierTonightGames;
+ const data=await fetchScoreboard();
+ premierTonightGames=(data.events||[]).map(g=>{
+  const teams=g.competitions?.[0]?.competitors||[];
+  return {event:g,teams:teams.map(t=>({id:String(t.team?.id||''),abbr:t.team?.abbreviation||'',name:t.team?.displayName||'',homeAway:t.homeAway}))};
+ });
+ return premierTonightGames;
+}
+async function loadPremierRoster(teamId){
+ if(premierRosterCache[teamId])return premierRosterCache[teamId];
+ const r=await fetchTimeout(API+'/teams/'+encodeURIComponent(teamId)+'/roster',15000);
+ if(!r.ok)throw Error('Roster nije dostupan');
+ const data=await r.json(),players=[];
+ function scan(x){
+  if(!x||typeof x!=='object')return;
+  if(Array.isArray(x)){x.forEach(scan);return}
+  const athlete=x.athlete||x;
+  const name=athlete.displayName||athlete.fullName;
+  const id=athlete.id;
+  if(name&&id&&!players.some(p=>String(p.id)===String(id)))players.push({id:String(id),name:String(name)});
+  Object.values(x).forEach(v=>{if(v&&typeof v==='object')scan(v)});
+ }
+ scan(data);
+ premierRosterCache[teamId]=players;
+ return players;
+}
+async function premierGetMatchup(p){
+ const games=await loadPremierTonightGames();
+ const game=games.find(g=>g.teams.some(t=>premierTeamMatches(p.team,t.abbr,t.name)));
+ if(!game)throw Error('Momčad igrača nema utakmicu na današnjem rasporedu.');
+ const own=game.teams.find(t=>premierTeamMatches(p.team,t.abbr,t.name));
+ const opp=game.teams.find(t=>t.id!==own.id);
+ if(!own?.id||!opp?.id)throw Error('Protivnik nije potvrđen na rasporedu.');
+ const [ownRoster,oppRoster]=await Promise.all([loadPremierRoster(own.id),loadPremierRoster(opp.id)]);
+ const rosterEntry=ownRoster.find(x=>premierNormalize(x.name)===premierNormalize(p.full));
+ return {game,own,opp,ownRoster,oppRoster,onRoster:!!rosterEntry,rosterName:rosterEntry?.name||null};
+}
 async function premierOneProjection(p){
- // 1) DARKO is preferred. 2) Free Drop Coverage JSON is the next source.
- let dropRow=null;
- try{const rows=await loadDropCoverageRows();dropRow=matchDropCoveragePts(rows,p.full)}catch(e){}
- if(dropRow){
-  const value=Number(dropRow.proj);
-  const injury=injuryData.find(x=>premierNormalize(x.name)===premierNormalize(p.full));
-  let histAthlete=null;try{histAthlete=await resolvePremierPlayer(p.full)}catch(e){}
-  savePremierHistory(p,value,histAthlete?.id);
-  premierRenderProjection(p,value,Number(dropRow.sigma)||0,Number(dropRow.minutes)||null,injury,0);
-  premierSetStatus(p.id,p.full+' · Drop Coverage PTS · '+(dropRow.team||'')+' vs '+(dropRow.opp||''));
-  return {projection:value,sd:Number(dropRow.sigma)||0,athlete:{name:p.full},injury,source:'Drop Coverage'};
- }
- // Use published DARKO projection when available.
- const darkoPts=DARKO_PTS_20261117[p.full];
  const injury=injuryData.find(x=>premierNormalize(x.name)===premierNormalize(p.full));
- if(Number.isFinite(darkoPts)){
-  let histAthlete=null;try{histAthlete=await resolvePremierPlayer(p.full)}catch(e){}
-  savePremierHistory(p,darkoPts,histAthlete?.id);
-  premierRenderProjection(p,darkoPts,0,null,injury,0);
-  premierSetStatus(p.id,p.full+' · DARKO PTS/G · 17.11.2026'+(injury?' · '+injury.status:''));
-  return {projection:darkoPts,sd:0,athlete:{name:p.full},injury,source:'DARKO'};
- }
- // Use the already loaded matchup model estimate for players not covered by DARKO.
- const matchupPts=PREMIER_MATCHUP_PTS[p.full];
- if(Number.isFinite(matchupPts)){
-  let histAthlete=null;try{histAthlete=await resolvePremierPlayer(p.full)}catch(e){}
-  savePremierHistory(p,matchupPts,histAthlete?.id);
-  premierRenderProjection(p,matchupPts,0,null,injury,0);
-  premierSetStatus(p.id,p.full+' · matchup model procjena · 19.11.2026'+(injury?' · '+injury.status:''));
-  return {projection:matchupPts,sd:0,athlete:{name:p.full},injury,source:'Matchup model'};
- }
- // ESPN game logs are the final fallback when no published estimate is listed.
+ const matchup=await premierGetMatchup(p);
+ if(!matchup.onRoster)throw Error('Igrač nije pronađen na aktualnom rosteru '+matchup.own.name+'; provjeri Premier popis.');
  const athlete=await resolvePremierPlayer(p.full);
- const log=await getRecentGames(athlete.id,new Date().getFullYear()+(new Date().getMonth()>=9?1:0));
+ const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);
+ const log=await getRecentGames(athlete.id,season);
  const vals=extractRecentMetric(log,'points'),mins=extractRecentMetric(log,'minutes');
- if(vals.length<3)throw Error('DARKO nema javnu projekciju; ESPN nije vratio dovoljno utakmica');
+ if(vals.length<3)throw Error('Nema dovoljno zadnjih utakmica za procjenu večeras.');
  const last10=vals.slice(0,10),last5=last10.slice(0,5);
- const avg10=last10.reduce((sum,v)=>sum+v,0)/last10.length;
- const avg5=last5.reduce((sum,v)=>sum+v,0)/last5.length;
- const min5=mins.length>=3?mins.slice(0,5).reduce((sum,v)=>sum+v,0)/Math.min(5,mins.length):null;
- const min10=mins.length>=3?mins.slice(0,10).reduce((sum,v)=>sum+v,0)/Math.min(10,mins.length):null;
- const minuteFactor=min5!==null&&min10>0?Math.max(.85,Math.min(1.15,min5/min10)):1;
- const projection=(avg5*.65+avg10*.35)*minuteFactor;
- savePremierHistory(p,projection,athlete.id);
- const sd=Math.sqrt(last10.reduce((sum,v)=>sum+(v-avg10)**2,0)/last10.length)||1;
- premierRenderProjection(p,projection,sd,min5,injury,last10.length);
- premierSetStatus(p.id,athlete.name+' · ESPN zadnjih '+last10.length+' utakmica'+(injury?' · '+injury.status:''));
- return {projection,sd,athlete,injury,source:'ESPN'};
+ const avg10=last10.reduce((s,v)=>s+v,0)/last10.length;
+ const avg5=last5.reduce((s,v)=>s+v,0)/last5.length;
+ const min5=mins.length>=3?mins.slice(0,5).reduce((s,v)=>s+v,0)/Math.min(5,mins.length):null;
+ const min10=mins.length>=3?mins.slice(0,10).reduce((s,v)=>s+v,0)/Math.min(10,mins.length):null;
+ let estimate=(avg5*.65+avg10*.35);
+ if(min5!==null&&min10>0)estimate*=Math.max(.82,Math.min(1.18,min5/min10));
+ // Opponent points-allowed is a modest matchup adjustment, not a season-average projection.
+ const oppAllowed=await getOpponentDefense(matchup.opp.id,season);
+ let defenseFactor=1;
+ if(Number.isFinite(oppAllowed))defenseFactor=Math.max(.94,Math.min(1.06,1+(oppAllowed-115)/500));
+ estimate*=defenseFactor;
+ // Teammate availability and full-roster context: confirmed absences modestly raise usage,
+ // while a player's own OUT status blocks a positive recommendation.
+ const unavailable=injuryData.filter(x=>isUnavailable(x)&&(!x.team||premierTeamMatches(p.team,'',x.team)));
+ const questionable=injuryData.filter(x=>isQuestionable(x)&&(!x.team||premierTeamMatches(p.team,'',x.team)));
+ if(unavailable.length)estimate*=1+Math.min(.08,unavailable.length*.015);
+ if(injury&&isUnavailable(injury))estimate=0;
+ const sd=Math.sqrt(last10.reduce((s,v)=>s+(v-avg10)**2,0)/last10.length)||1;
+ const rounded=Math.max(0,Math.round(estimate));
+ savePremierHistory(p,rounded,athlete.id);
+ premierRenderProjection(p,rounded,sd,min5,injury,last10.length);
+ const homeAway=matchup.own.homeAway==='home'?'domaćin':'gost';
+ premierSetStatus(p.id,athlete.name+' · večeras protiv '+matchup.opp.name+' ('+homeAway+') · roster '+matchup.ownRoster.length+' igrača · '+last10.length+' zadnjih utakmica'+(oppAllowed?' · obrana protivnika '+oppAllowed.toFixed(1)+' primljenih poena':'')+(unavailable.length?' · '+unavailable.length+' suigrača OUT':'')+(questionable.length?' · '+questionable.length+' upitnih':'')+(injury?' · '+injury.status:''));
+ return {projection:rounded,sd,athlete,injury,source:'Tonight matchup',opponent:matchup.opp.name};
 }
 async function calculatePremierPredictions(){
  if(premierRunning)return;

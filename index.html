@@ -427,7 +427,7 @@ async function refreshPredictionHistory(){
 }
 function premierSetStatus(id,msg){premierStatusResults[id]=msg;const el=document.getElementById('premier-status-'+id);if(el)el.textContent=msg}
 function premierRenderProjection(p,projection,sd,minutes,injury,gameCount){
- injury=findInjuryForPlayer(p.full)||injury;
+ injury=findInjuryForPlayer(p.full);
  const proj=document.getElementById('premier-proj-'+p.id),signal=document.getElementById('premier-signal-'+p.id);
  premierProjectionResults[p.id]={projection,sd,minutes,injury,gameCount};
  if(!proj||!signal)return;

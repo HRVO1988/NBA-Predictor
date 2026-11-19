@@ -94,7 +94,7 @@ async function fetchScoreboard(){
  throw lastError||Error('Raspored nije dostupan');
 }
 let currentEvents=[];let selectedPredictPlayer=null;let injuryData=[];
-function show(id,button){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));button.classList.add('active')}
+function show(id,button){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));button.classList.add('active');if(id==='premier'&&!premierAutoStarted){premierAutoStarted=true;calculatePremierPredictions()}}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function gameCard(g){const c=g.competitions?.[0],teams=c?.competitors||[],home=teams.find(t=>t.homeAway==='home')||teams[0],away=teams.find(t=>t.homeAway==='away')||teams[1],status=c?.status?.type?.shortDetail||g.status?.type?.shortDetail||'Raspored';return '<div class="card"><div class="game-status">'+esc(status)+'</div><div class="stat"><b>'+esc(away?.team?.displayName||'Gost')+'</b><b>'+esc(away?.score??'—')+'</b></div><div class="stat"><b>'+esc(home?.team?.displayName||'Domaćin')+'</b><b>'+esc(home?.score??'—')+'</b></div><p class="muted">'+esc(new Date(g.date).toLocaleString('hr-HR',{dateStyle:'medium',timeStyle:'short'}))+'</p></div>'}
 async function loadGames(){const box=document.getElementById('todayGames'),all=document.getElementById('allGames');try{const data=await fetchScoreboard(),events=data.events||[];currentEvents=events;populateOpponents(events);document.getElementById('updated').textContent='Ažurirano: '+new Date().toLocaleString('hr-HR')+' · Izvor: ESPN';const html=events.length?events.map(gameCard).join(''):'<div class="card">Nema utakmica na današnjem NBA rasporedu.</div>';box.innerHTML=html;all.innerHTML=html}catch(e){box.innerHTML='<div class="card orange">Raspored trenutačno nije dostupan. Pokušaj ponovno kasnije.</div>';all.innerHTML=box.innerHTML;document.getElementById('updated').textContent='Podaci trenutno nisu dostupni.'}}
@@ -265,7 +265,7 @@ const PREMIER_FULL_NAMES=[
 "Victor Wembanyama","Stephon Castle","Keldon Johnson","De'Aaron Fox","Devin Vassell","Julian Champagnie",
 "Darius Garland","Rui Hachimura","Derrick Jones Jr.","Brook Lopez"
 ];
-let premierRunning=false;
+let premierRunning=false;let premierAutoStarted=false;
 function renderPremierOffer(){
  const box=document.getElementById('premierOfferList');if(!box)return;
  const q=(document.getElementById('premierSearch')?.value||'').trim().toLowerCase();

@@ -270,7 +270,7 @@ let premierRunning=false;let premierAutoStarted=false;let premierAvailableIds=nu
 function renderPremierOffer(){
  const box=document.getElementById('premierOfferList');if(!box)return;
  const q=(document.getElementById('premierSearch')?.value||'').trim().toLowerCase();
- const list=PREMIER_PLAYERS.map((p,i)=>({name:p[0],team:p[1],line:p[2],id:i,full:PREMIER_FULL_NAMES[i]})).filter(p=>(!premierAvailableIds||premierAvailableIds.has(p.id))&&(p.name+' '+p.team+' '+p.full).toLowerCase().includes(q));
+ const list=PREMIER_PLAYERS.map((p,i)=>({name:p[0],team:p[1],line:p[2],id:i,full:PREMIER_FULL_NAMES[i]})).filter(p=>(p.name+' '+p.team+' '+p.full).toLowerCase().includes(q));
  box.innerHTML='<div class="card">'+list.map(p=>'<div class="premier-row"><div><b>'+esc(p.name)+'</b><small>'+esc(p.team)+' · '+esc(p.full)+' · 1 manje 1,85 / 2 više 1,85</small><small class="premier-status" id="premier-status-'+p.id+'"></small></div><b>'+p.line.toFixed(1)+'</b><div class="premier-est" id="premier-proj-'+p.id+'">—</div><div class="premier-signal premier-neutral" id="premier-signal-'+p.id+'"></div></div>').join('')+'</div>';
 }
 
@@ -396,7 +396,7 @@ async function premierOneProjection(p){
   premierSetStatus(p.id,p.full+' · Drop Coverage PTS · '+(dropRow.team||'')+' vs '+(dropRow.opp||''));
   return {projection:value,sd:Number(dropRow.sigma)||0,athlete:{name:p.full},injury,source:'Drop Coverage'};
  }
- // 1) Use DARKO when an actual published player points estimate exists.
+ // Use published DARKO projection when available.
  const darkoPts=DARKO_PTS_20261117[p.full];
  const injury=injuryData.find(x=>premierNormalize(x.name)===premierNormalize(p.full));
  if(Number.isFinite(darkoPts)){
@@ -406,7 +406,16 @@ async function premierOneProjection(p){
   premierSetStatus(p.id,p.full+' · DARKO PTS/G · 17.11.2026'+(injury?' · '+injury.status:''));
   return {projection:darkoPts,sd:0,athlete:{name:p.full},injury,source:'DARKO'};
  }
- // 2) Try ESPN game logs as the independent fallback source.
+ // Use the already loaded matchup model estimate for players not covered by DARKO.
+ const matchupPts=PREMIER_MATCHUP_PTS[p.full];
+ if(Number.isFinite(matchupPts)){
+  let histAthlete=null;try{histAthlete=await resolvePremierPlayer(p.full)}catch(e){}
+  savePremierHistory(p,matchupPts,histAthlete?.id);
+  premierRenderProjection(p,matchupPts,0,null,injury,0);
+  premierSetStatus(p.id,p.full+' · matchup model procjena · 19.11.2026'+(injury?' · '+injury.status:''));
+  return {projection:matchupPts,sd:0,athlete:{name:p.full},injury,source:'Matchup model'};
+ }
+ // ESPN game logs are the final fallback when no published estimate is listed.
  const athlete=await resolvePremierPlayer(p.full);
  const log=await getRecentGames(athlete.id,new Date().getFullYear()+(new Date().getMonth()>=9?1:0));
  const vals=extractRecentMetric(log,'points'),mins=extractRecentMetric(log,'minutes');
@@ -439,14 +448,14 @@ async function calculatePremierPredictions(){
    const p=PREMIER_PLAYERS[i];
    premierSetStatus(i,'Tražim statističke podatke…');
    try{await premierOneProjection({name:p[0],team:p[1],line:p[2],id:i,full:PREMIER_FULL_NAMES[i]});premierAvailableIds.add(i);ok++}
-   catch(e){failed++;premierSetStatus(i,'Nema pouzdanih podataka: '+String(e.message||e));}
+   catch(e){failed++;const proj=document.getElementById('premier-proj-'+i),signal=document.getElementById('premier-signal-'+i);if(proj)proj.innerHTML='<small>nema procjene</small>';if(signal){signal.className='premier-signal premier-neutral';signal.textContent='NEMA PODATAKA';}premierSetStatus(i,'Izvori nisu vratili dovoljno statistike za pouzdan izračun.');}
    done++;
    if(progress)progress.textContent='Obrađeno '+done+' / 31 · uspješno '+ok+' · bez podataka '+failed;
   }
  });
  await Promise.all(workers);
  renderPremierOffer();
- if(progress)progress.textContent='Prikazano '+ok+' igrača s dostupnom procjenom. '+failed+' bez podataka automatski je uklonjeno.';
+ if(progress)progress.textContent='Izračunato '+ok+' od 31 igrača. '+failed+' ostaje prikazano uz napomenu da izvor nije vratio dovoljno podataka.';
  if(btn)btn.disabled=false;
  renderPredictionHistory();
  premierRunning=false;

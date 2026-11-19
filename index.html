@@ -266,12 +266,13 @@ const PREMIER_FULL_NAMES=[
 "Victor Wembanyama","Stephon Castle","Keldon Johnson","De'Aaron Fox","Devin Vassell","Julian Champagnie",
 "Darius Garland","Rui Hachimura","Derrick Jones Jr.","Brook Lopez"
 ];
-let premierRunning=false;let premierAutoStarted=false;let premierAvailableIds=null;
+let premierRunning=false;let premierAutoStarted=false;let premierAvailableIds=null;let premierProjectionResults={};let premierStatusResults={};
 function renderPremierOffer(){
  const box=document.getElementById('premierOfferList');if(!box)return;
  const q=(document.getElementById('premierSearch')?.value||'').trim().toLowerCase();
  const list=PREMIER_PLAYERS.map((p,i)=>({name:p[0],team:p[1],line:p[2],id:i,full:PREMIER_FULL_NAMES[i]})).filter(p=>(p.name+' '+p.team+' '+p.full).toLowerCase().includes(q));
- box.innerHTML='<div class="card">'+list.map(p=>'<div class="premier-row"><div><b>'+esc(p.name)+'</b><small>'+esc(p.team)+' · '+esc(p.full)+' · 1 manje 1,85 / 2 više 1,85</small><small class="premier-status" id="premier-status-'+p.id+'"></small></div><b>'+p.line.toFixed(1)+'</b><div class="premier-est" id="premier-proj-'+p.id+'">—</div><div class="premier-signal premier-neutral" id="premier-signal-'+p.id+'"></div></div>').join('')+'</div>';
+ box.innerHTML='<div class="card">'+list.map(p=>'<div class="premier-row"><div><b>'+esc(p.name)+'</b><small>'+esc(p.team)+' · '+esc(p.full)+' · 1 manje 1,85 / 2 više 1,85</small><small class="premier-status" id="premier-status-'+p.id+'">'+esc(premierStatusResults[p.id]||'')+'</small></div><b>'+p.line.toFixed(1)+'</b><div class="premier-est" id="premier-proj-'+p.id+'">—</div><div class="premier-signal premier-neutral" id="premier-signal-'+p.id+'"></div></div>').join('')+'</div>';
+ list.forEach(p=>{const r=premierProjectionResults[p.id];if(r)premierRenderProjection(p,r.projection,r.sd,r.minutes,r.injury,r.gameCount)});
 }
 
 const PREDICTION_HISTORY_KEY='nbaPredictorHistoryV1';
@@ -319,9 +320,10 @@ async function refreshPredictionHistory(){
   writePredictionHistory(items);renderPredictionHistory();
  }catch(e){if(summary)summary.textContent='Rezultate trenutačno nije moguće provjeriti. Pokušaj ponovno kasnije.'}
 }
-function premierSetStatus(id,msg){const el=document.getElementById('premier-status-'+id);if(el)el.textContent=msg}
+function premierSetStatus(id,msg){premierStatusResults[id]=msg;const el=document.getElementById('premier-status-'+id);if(el)el.textContent=msg}
 function premierRenderProjection(p,projection,sd,minutes,injury,gameCount){
  const proj=document.getElementById('premier-proj-'+p.id),signal=document.getElementById('premier-signal-'+p.id);
+ premierProjectionResults[p.id]={projection,sd,minutes,injury,gameCount};
  if(!proj||!signal)return;
  proj.innerHTML='<b>'+projection.toFixed(1)+'</b><small>±'+sd.toFixed(1)+' · '+gameCount+' utak.</small>';
  const diff=projection-p.line;
@@ -454,7 +456,6 @@ async function calculatePremierPredictions(){
   }
  });
  await Promise.all(workers);
- renderPremierOffer();
  if(progress)progress.textContent='Izračunato '+ok+' od 31 igrača. '+failed+' ostaje prikazano uz napomenu da izvor nije vratio dovoljno podataka.';
  if(btn)btn.disabled=false;
  renderPredictionHistory();

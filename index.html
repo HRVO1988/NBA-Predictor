@@ -323,49 +323,51 @@ function premierRenderProjection(p,projection,sd,minutes,injury,gameCount){
  else if(injury&&isQuestionable(injury)){signal.textContent+=' · UPITAN';}
 }
 function premierRenderExtraStats(id,x){const el=document.getElementById('premier-extra-'+id);if(el)el.innerHTML='Skokovi: <b>'+x.rebounds.toFixed(1)+'</b> · Asistencije: <b>'+x.assists.toFixed(1)+'</b><small> · '+esc(x.basis||('zadnjih '+x.games+' utak.'))+'</small>';}
-function premierReadEspnGameMetric(data,metric){
- const aliases={rebounds:['rebounds','reb'],assists:['assists','ast']},wanted=aliases[metric];
- const labels=(data?.names||data?.labels||data?.displayNames||[]).map(x=>String(x).toLowerCase().replace(/[^a-z]/g,''));
- let idx=labels.findIndex(x=>wanted.includes(x));
- if(idx<0)return [];
- const events=Array.isArray(data?.events)?data.events:[];
- return events.map(g=>{const raw=g?.stats?.[idx];const n=Number(String(raw??'').replace(/[^0-9.-]/g,''));return Number.isFinite(n)&&n>=0?n:null}).filter(x=>x!==null).slice(0,10);
-}
-function premierReadEspnSeasonMetric(data,metric){
- const aliases={rebounds:['reb','rebounds'],assists:['ast','assists']},wanted=aliases[metric];
- for(const cat of (data?.categories||data?.statCategories||[])){
-  const labels=(cat.labels||cat.names||[]).map(x=>String(x).toLowerCase().replace(/[^a-z]/g,''));
-  const idx=labels.findIndex(x=>wanted.includes(x));
-  const values=cat.totals||cat.values||cat.stats||[];
-  if(idx>=0&&values[idx]!==undefined){
-   const n=Number(String(values[idx]).replace(/[^0-9.-]/g,''));
-   if(Number.isFinite(n)&&n>=0)return n;
-  }
- }
+function premierReadAverageMetric(data,metric){
+ const aliases=metric==='rebounds'?['avgrebounds','reboundspergame','rpg','reb']:['avgassists','assistspergame','apg','ast'];
+ const readGroup=(group)=>{
+  if(!group||typeof group!=='object')return null;
+  const labels=(group.names||group.labels||group.abbreviations||group.displayNames||[]).map(x=>String(x).toLowerCase().replace(/[^a-z]/g,''));
+  const values=group.values||group.displayValues||group.totals||group.stats||[];
+  const idx=labels.findIndex(x=>aliases.includes(x));
+  if(idx<0||values[idx]===undefined)return null;
+  const n=Number(String(values[idx]).replace(/[^0-9.-]/g,''));
+  return Number.isFinite(n)&&n>=0?n:null;
+ };
+ let value=readGroup(data?.statistics)||readGroup(data);
+ if(value!==null)return value;
+ for(const group of (data?.categories||[])){value=readGroup(group);if(value!==null)return value;}
  return null;
 }
 async function premierEstimateExtraStats(p){
- const athlete=await resolvePremierPlayer(p.full);
- const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);
- let rb=[],ast=[];
- // ESPN v3 game log: stat columns are defined once in top-level names/labels.
- try{
-  const response=await fetchTimeout(COMMON+'/athletes/'+encodeURIComponent(athlete.id)+'/gamelog?season='+season+'&seasontype=2');
-  if(response.ok){const log=await response.json();rb=premierReadEspnGameMetric(log,'rebounds');ast=premierReadEspnGameMetric(log,'assists');}
- }catch(e){}
- const avg=a=>{const last=a.slice(0,10),five=last.slice(0,5);return five.reduce((sum,v)=>sum+v,0)/five.length*.65+last.reduce((sum,v)=>sum+v,0)/last.length*.35};
- let result;
- if(rb.length>=3&&ast.length>=3){
-  result={rebounds:avg(rb),assists:avg(ast),games:Math.min(rb.length,ast.length),basis:'ESPN · zadnjih '+Math.min(rb.length,ast.length)+' utak.'};
- }else{
-  const response=await fetchTimeout(COMMON+'/athletes/'+encodeURIComponent(athlete.id)+'/stats?season='+season+'&seasontype=2');
-  if(!response.ok)throw Error('ESPN statistika nije dostupna');
-  const data=await response.json();
-  const rebounds=premierReadEspnSeasonMetric(data,'rebounds'),assists=premierReadEspnSeasonMetric(data,'assists');
-  if(rebounds===null||assists===null)throw Error('ESPN nema prosjeke skokova i asistencija');
-  result={rebounds,assists,games:0,basis:'ESPN · sezonski prosjek'};
+ const cacheKey='nbaPremierAthlete_'+premierNormalize(p.full);
+ let lastError=null;
+ // ESPN overview contains explicit season averages (avgRebounds / avgAssists).
+ // Retry once without a potentially stale cached athlete ID.
+ for(let attempt=0;attempt<2;attempt++){
+  try{
+   if(attempt===1){try{localStorage.removeItem(cacheKey)}catch(e){}}
+   const athlete=await resolvePremierPlayer(p.full);
+   const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);
+   let data=null;
+   const overview=await fetchTimeout(COMMON+'/athletes/'+encodeURIComponent(athlete.id)+'/overview',15000);
+   if(overview.ok)data=await overview.json();
+   let rebounds=data?premierReadAverageMetric(data,'rebounds'):null;
+   let assists=data?premierReadAverageMetric(data,'assists'):null;
+   if(rebounds===null||assists===null){
+    const statsResponse=await fetchTimeout(COMMON+'/athletes/'+encodeURIComponent(athlete.id)+'/stats?season='+season+'&seasontype=2',15000);
+    if(statsResponse.ok){
+     const stats=await statsResponse.json();
+     if(rebounds===null)rebounds=premierReadAverageMetric(stats,'rebounds');
+     if(assists===null)assists=premierReadAverageMetric(stats,'assists');
+    }
+   }
+   if(rebounds===null||assists===null)throw Error('ESPN nije vratio sezonske prosjeke');
+   const result={rebounds,assists,games:0,basis:'ESPN · sezonski prosjek'};
+   premierExtraResults[p.id]=result;premierRenderExtraStats(p.id,result);return result;
+  }catch(e){lastError=e;}
  }
- premierExtraResults[p.id]=result;premierRenderExtraStats(p.id,result);return result;
+ throw lastError||Error('Nema ESPN podataka');
 }
 function premierNormalize(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'')}
 async function resolvePremierPlayer(fullName){

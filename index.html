@@ -487,7 +487,7 @@ async function calculatePremierPredictions(){
    premierSetStatus(i,'Tražim statističke podatke…');
    const player={name:p[0],team:p[1],line:p[2],id:i,full:PREMIER_FULL_NAMES[i]};try{await premierOneProjection(player);premierAvailableIds.add(i);ok++}
    catch(e){failed++;const proj=document.getElementById('premier-proj-'+i),signal=document.getElementById('premier-signal-'+i);if(proj)proj.innerHTML='<small>nema procjene</small>';if(signal){signal.className='premier-signal premier-neutral';signal.textContent='NEMA PODATAKA';}premierSetStatus(i,'Izvori nisu vratili dovoljno statistike za pouzdan izračun.');}
-   try{await premierEstimateExtraStats(player)}catch(e){const el=document.getElementById('premier-extra-'+i);if(el)el.textContent='Skokovi: nema podataka · Asistencije: nema podataka';}
+   try{await premierEstimateExtraStats(player)}catch(e){const el=document.getElementById('premier-extra-'+i);if(el)el.innerHTML='Skokovi: nema podataka · Asistencije: nema podataka<small> · '+esc(e&&e.message?e.message:'ESPN izvor nije dostupan')+'</small>';}
    done++;
    if(progress)progress.textContent='Obrađeno '+done+' / 31 · uspješno '+ok+' · bez podataka '+failed;
   }

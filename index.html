@@ -455,7 +455,7 @@ function compare(){const l=document.getElementById('line').value,e=document.getE
 loadGames();loadInjuries();loadDailyPicks();renderPremierOffer();
 </script>
 <script>
-if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}))}
+if('serviceWorker' in navigator){window.addEventListener('load',async()=>{try{const reg=await navigator.serviceWorker.register('./sw.js');await reg.update()}catch(e){}})}
 </script>
 </body>
 </html>

@@ -24,7 +24,7 @@
 <button onclick="show('daily',this)">TOP 5 danas</button><button onclick="show('games',this)">Utakmice</button>
 <button onclick="show('players',this)">Igrači</button>
 <button onclick="show('predict',this)">Predikcija</button>
-<button onclick="show('premier',this)">Premier ponuda (31)</button>
+<button onclick="show('premier',this)">Premier ponuda</button><button onclick="show('history',this)">Povijest predikcija</button>
 <button onclick="show('lines',this)">Linije</button><button onclick="show('live',this)">Uživo poeni</button>
 <button onclick="show('injuries',this)">Ozljede</button>
 </nav>
@@ -56,6 +56,7 @@
 <div class="notice">Procjena je statistički model, ne sigurna prognoza. Ako izvor ne daje podatak o obrani, ozljedama ili zamjeni, aplikacija će to označiti umjesto da izmišlja vrijednosti.</div>
 </section>
 <section id="premier" class="section"><h2>📋 Premier ponuda — 31 igrača</h2><p class="muted">Granice i kvote prepisane iz tvojih snimki. Procjena se automatski popunjava iz DARKO PTS/G gdje je javno prikazana (snapshot 17.11.2026); za ostale igrače koristi se ESPN forma kao rezerva. 1 = MANJE (1,85), 2 = VIŠE (1,85).</p><button class="action" id="premierRun" onclick="calculatePremierPredictions()">Izračunaj / osvježi dostupne predikcije</button><p class="muted" id="premierProgress">Predikcije će se učitati iz aktualne sezone.</p><input id="premierSearch" placeholder="Pretraži igrača ili momčad…" oninput="renderPremierOffer()"><div id="premierOfferList"></div><p class="muted">Model: 65% prosjeka zadnjih 5 + 35% zadnjih 10, uz korekciju trenda minutaže. Ozljede se označavaju kad ih ESPN feed prepozna. Ovo nije garancija ishoda. Premierove nove kvote ne mogu se automatski dohvatiti dok Premier ne omogući dostupan javni feed.</p></section>
+<section id="history" class="section"><h2>📚 Povijest predikcija</h2><p class="muted">Spremljene predikcije iz Premier ponude. Rezultat se provjerava nakon završetka utakmice.</p><button class="action" onclick="refreshPredictionHistory()">Provjeri završene utakmice</button><div id="historySummary" class="muted"></div><div id="predictionHistory"></div></section>
 <section id="live" class="section">
 <h2>📡 Stvarni poeni igrača uživo</h2>
 <p class="muted">Poeni se čitaju iz NBA boxscorea. Osvježi tijekom utakmice.</p>
@@ -94,7 +95,7 @@ async function fetchScoreboard(){
  throw lastError||Error('Raspored nije dostupan');
 }
 let currentEvents=[];let selectedPredictPlayer=null;let injuryData=[];
-function show(id,button){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));button.classList.add('active');if(id==='premier'&&!premierAutoStarted){premierAutoStarted=true;calculatePremierPredictions()}}
+function show(id,button){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));button.classList.add('active');if(id==='premier'&&!premierAutoStarted){premierAutoStarted=true;calculatePremierPredictions()}if(id==='history')renderPredictionHistory()}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function gameCard(g){const c=g.competitions?.[0],teams=c?.competitors||[],home=teams.find(t=>t.homeAway==='home')||teams[0],away=teams.find(t=>t.homeAway==='away')||teams[1],status=c?.status?.type?.shortDetail||g.status?.type?.shortDetail||'Raspored';return '<div class="card"><div class="game-status">'+esc(status)+'</div><div class="stat"><b>'+esc(away?.team?.displayName||'Gost')+'</b><b>'+esc(away?.score??'—')+'</b></div><div class="stat"><b>'+esc(home?.team?.displayName||'Domaćin')+'</b><b>'+esc(home?.score??'—')+'</b></div><p class="muted">'+esc(new Date(g.date).toLocaleString('hr-HR',{dateStyle:'medium',timeStyle:'short'}))+'</p></div>'}
 async function loadGames(){const box=document.getElementById('todayGames'),all=document.getElementById('allGames');try{const data=await fetchScoreboard(),events=data.events||[];currentEvents=events;populateOpponents(events);document.getElementById('updated').textContent='Ažurirano: '+new Date().toLocaleString('hr-HR')+' · Izvor: ESPN';const html=events.length?events.map(gameCard).join(''):'<div class="card">Nema utakmica na današnjem NBA rasporedu.</div>';box.innerHTML=html;all.innerHTML=html}catch(e){box.innerHTML='<div class="card orange">Raspored trenutačno nije dostupan. Pokušaj ponovno kasnije.</div>';all.innerHTML=box.innerHTML;document.getElementById('updated').textContent='Podaci trenutno nisu dostupni.'}}
@@ -272,6 +273,52 @@ function renderPremierOffer(){
  const list=PREMIER_PLAYERS.map((p,i)=>({name:p[0],team:p[1],line:p[2],id:i,full:PREMIER_FULL_NAMES[i]})).filter(p=>(!premierAvailableIds||premierAvailableIds.has(p.id))&&(p.name+' '+p.team+' '+p.full).toLowerCase().includes(q));
  box.innerHTML='<div class="card">'+list.map(p=>'<div class="premier-row"><div><b>'+esc(p.name)+'</b><small>'+esc(p.team)+' · '+esc(p.full)+' · 1 manje 1,85 / 2 više 1,85</small><small class="premier-status" id="premier-status-'+p.id+'">Čeka analizu</small></div><b>'+p.line.toFixed(1)+'</b><div class="premier-est" id="premier-proj-'+p.id+'">—</div><div class="premier-signal premier-neutral" id="premier-signal-'+p.id+'">Čeka izračun</div></div>').join('')+'</div>';
 }
+
+const PREDICTION_HISTORY_KEY='nbaPredictorHistoryV1';
+function readPredictionHistory(){try{return JSON.parse(localStorage.getItem(PREDICTION_HISTORY_KEY)||'[]')}catch(e){return []}}
+function writePredictionHistory(items){try{localStorage.setItem(PREDICTION_HISTORY_KEY,JSON.stringify(items.slice(-250)))}catch(e){}}
+function savePremierHistory(p,projection,athleteId){
+ const items=readPredictionHistory(),today=nbaLocalDate(),choice=projection>p.line+0.5?'OVER':projection<p.line-0.5?'UNDER':'NO_EDGE';
+ const key=today+'|'+premierNormalize(p.full)+'|'+p.line;
+ if(items.some(x=>x.key===key))return;
+ items.push({key,date:today,name:p.full,display:p.name,team:p.team,line:p.line,projection:Number(projection.toFixed(1)),choice,athleteId:athleteId||'',status:'PENDING',actual:null,createdAt:new Date().toISOString()});
+ writePredictionHistory(items);
+}
+function renderPredictionHistory(){
+ const box=document.getElementById('predictionHistory'),summary=document.getElementById('historySummary');if(!box)return;
+ const items=readPredictionHistory().slice().reverse(),won=items.filter(x=>x.status==='WON').length,lost=items.filter(x=>x.status==='LOST').length,pending=items.filter(x=>x.status==='PENDING').length;
+ summary.textContent='Ukupno: '+items.length+' · Uspješne: '+won+' · Neuspješne: '+lost+' · Čekaju rezultat: '+pending;
+ box.innerHTML=items.length?items.map(x=>'<div class="card"><b>'+esc(x.display||x.name)+'</b><div class="muted">'+esc(x.date)+' · '+esc(x.team)+'</div><div class="stat"><span>Procjena / granica</span><b>'+Number(x.projection).toFixed(1)+' / '+Number(x.line).toFixed(1)+'</b></div><div class="stat"><span>Tip</span><b>'+esc(x.choice)+'</b></div><div class="stat"><span>Stvarni poeni</span><b>'+(x.actual===null?'—':x.actual)+'</b></div><p class="'+(x.status==='WON'?'green':x.status==='LOST'?'orange':'muted')+'">'+(x.status==='WON'?'✓ USPJEŠNA':x.status==='LOST'?'✕ NEUSPJEŠNA':x.status==='NO_EDGE'?'BEZ PREDNOSTI':'ČEKA ZAVRŠETAK UTAKMICE')+'</p></div>').join(''):'<div class="card">Još nema spremljenih predikcija. Prvo izračunaj Premier ponudu.</div>';
+}
+async function refreshPredictionHistory(){
+ const summary=document.getElementById('historySummary');if(summary)summary.textContent='Provjeravam završene utakmice…';
+ const items=readPredictionHistory(),pending=items.filter(x=>x.status==='PENDING'&&x.athleteId);
+ if(!pending.length){renderPredictionHistory();return}
+ try{
+  const data=await fetchScoreboard(),events=data.events||[];
+  for(const pick of pending){
+   const candidates=events.filter(g=>/final|završeno|ended/i.test(String(g.competitions?.[0]?.status?.type?.shortDetail||'')));
+   for(const game of candidates){
+    if(!game.id)continue;
+    try{
+     const r=await fetchTimeout('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event='+encodeURIComponent(game.id),12000);if(!r.ok)continue;
+     const body=await r.json();let actual=null,found=false;
+     function scan(x){if(!x||typeof x!=='object'||found)return;if(Array.isArray(x)){x.forEach(scan);return}
+      const athlete=x.athlete||x.player||{},id=String(athlete.id||x.athleteId||x.playerId||'');
+      if(id&&id===String(pick.athleteId)){
+       const stats=x.stats||x.statistics||x.lines||[];
+       if(Array.isArray(stats)){const row=stats.find(z=>/^(pts|points)$/i.test(String(z.name||z.abbreviation||z.label||'')));if(row){const n=Number(row.value??row.displayValue);if(Number.isFinite(n)){actual=n;found=true;return}}}
+      }
+      Object.values(x).forEach(v=>{if(v&&typeof v==='object')scan(v)});
+     }
+     scan(body);
+     if(found){pick.actual=actual;pick.status=pick.choice==='OVER'?(actual>pick.line?'WON':'LOST'):pick.choice==='UNDER'?(actual<pick.line?'WON':'LOST'):'NO_EDGE';break}
+    }catch(e){}
+   }
+  }
+  writePredictionHistory(items);renderPredictionHistory();
+ }catch(e){if(summary)summary.textContent='Rezultate trenutačno nije moguće provjeriti. Pokušaj ponovno kasnije.'}
+}
 function premierSetStatus(id,msg){const el=document.getElementById('premier-status-'+id);if(el)el.textContent=msg}
 function premierRenderProjection(p,projection,sd,minutes,injury,gameCount){
  const proj=document.getElementById('premier-proj-'+p.id),signal=document.getElementById('premier-signal-'+p.id);
@@ -343,6 +390,8 @@ async function premierOneProjection(p){
  if(dropRow){
   const value=Number(dropRow.proj);
   const injury=injuryData.find(x=>premierNormalize(x.name)===premierNormalize(p.full));
+  let histAthlete=null;try{histAthlete=await resolvePremierPlayer(p.full)}catch(e){}
+  savePremierHistory(p,value,histAthlete?.id);
   premierRenderProjection(p,value,Number(dropRow.sigma)||0,Number(dropRow.minutes)||null,injury,0);
   premierSetStatus(p.id,p.full+' · Drop Coverage PTS · '+(dropRow.team||'')+' vs '+(dropRow.opp||''));
   return {projection:value,sd:Number(dropRow.sigma)||0,athlete:{name:p.full},injury,source:'Drop Coverage'};
@@ -351,6 +400,8 @@ async function premierOneProjection(p){
  const darkoPts=DARKO_PTS_20261117[p.full];
  const injury=injuryData.find(x=>premierNormalize(x.name)===premierNormalize(p.full));
  if(Number.isFinite(darkoPts)){
+  let histAthlete=null;try{histAthlete=await resolvePremierPlayer(p.full)}catch(e){}
+  savePremierHistory(p,darkoPts,histAthlete?.id);
   premierRenderProjection(p,darkoPts,0,null,injury,0);
   premierSetStatus(p.id,p.full+' · DARKO PTS/G · 17.11.2026'+(injury?' · '+injury.status:''));
   return {projection:darkoPts,sd:0,athlete:{name:p.full},injury,source:'DARKO'};
@@ -367,6 +418,7 @@ async function premierOneProjection(p){
  const min10=mins.length>=3?mins.slice(0,10).reduce((sum,v)=>sum+v,0)/Math.min(10,mins.length):null;
  const minuteFactor=min5!==null&&min10>0?Math.max(.85,Math.min(1.15,min5/min10)):1;
  const projection=(avg5*.65+avg10*.35)*minuteFactor;
+ savePremierHistory(p,projection,athlete.id);
  const sd=Math.sqrt(last10.reduce((sum,v)=>sum+(v-avg10)**2,0)/last10.length)||1;
  premierRenderProjection(p,projection,sd,min5,injury,last10.length);
  premierSetStatus(p.id,athlete.name+' · ESPN zadnjih '+last10.length+' utakmica'+(injury?' · '+injury.status:''));
@@ -396,6 +448,7 @@ async function calculatePremierPredictions(){
  renderPremierOffer();
  if(progress)progress.textContent='Prikazano '+ok+' igrača s dostupnom procjenom. '+failed+' bez podataka automatski je uklonjeno.';
  if(btn)btn.disabled=false;
+ renderPredictionHistory();
  premierRunning=false;
 }
 function compare(){const l=document.getElementById('line').value,e=document.getElementById('estimate').value,res=document.getElementById('comparison');if(l===''||e===''){res.innerHTML='<p class="orange">Unesi obje vrijednosti.</p>';return}const d=Number(e)-Number(l);res.innerHTML='<div class="card"><h3>Rezultat usporedbe</h3><p>Statistika: '+esc(document.getElementById('statType').value)+'</p><p>Razlika: <b class="'+(d>0?'green':d<0?'orange':'')+'">'+(d>0?'+':'')+d.toFixed(1)+'</b></p><p>'+(d>0?'Procjena je iznad granice.':d<0?'Procjena je ispod granice.':'Procjena je jednaka granici.')+'</p></div>'}

@@ -324,6 +324,15 @@ function premierRenderProjection(p,projection,sd,minutes,injury,gameCount){
 }
 function premierRenderExtraStats(id,x){const el=document.getElementById('premier-extra-'+id);if(el)el.innerHTML='Skokovi: <b>'+x.rebounds.toFixed(1)+'</b> · Asistencije: <b>'+x.assists.toFixed(1)+'</b><small> · '+esc(x.basis||('zadnjih '+x.games+' utak.'))+'</small>';}
 async function premierEstimateExtraStats(p){
+ // Prvo koristi isti javni projekcijski feed koji već daje PTS za Premier ponudu.
+ let rows=null;try{rows=await loadDropCoverageRows()}catch(e){}
+ const findProjection=stat=>{if(!rows)return null;const row=rows.find(x=>x.stat===stat&&premierNormalize(x.player)===premierNormalize(p.full)&&Number.isFinite(Number(x.proj))&&Number(x.proj)>0);return row?Number(row.proj):null};
+ const feedReb=findProjection('REB'),feedAst=findProjection('AST');
+ if(feedReb!==null&&feedAst!==null){
+  const result={rebounds:feedReb,assists:feedAst,games:0,basis:'Drop Coverage projekcija'};
+  premierExtraResults[p.id]=result;premierRenderExtraStats(p.id,result);return result;
+ }
+ // Rezervni izračun iz ESPN zadnjih utakmica / sezonskih prosjeka.
  const athlete=await resolvePremierPlayer(p.full),season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);
  let rb=[],ast=[];
  try{const log=await getRecentGames(athlete.id,season);rb=extractRecentMetric(log,'rebounds');ast=extractRecentMetric(log,'assists')}catch(e){}

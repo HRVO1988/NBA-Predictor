@@ -270,7 +270,7 @@ function renderPremierOffer(){
  const box=document.getElementById('premierOfferList');if(!box)return;
  const q=(document.getElementById('premierSearch')?.value||'').trim().toLowerCase();
  const list=PREMIER_PLAYERS.map((p,i)=>({name:p[0],team:p[1],line:p[2],id:i,full:PREMIER_FULL_NAMES[i]})).filter(p=>(p.name+' '+p.team+' '+p.full).toLowerCase().includes(q));
- box.innerHTML='<div class="card">'+list.map(p=>'<div class="premier-row"><div><b>'+esc(p.name)+'</b><small>'+esc(p.team)+' · '+esc(p.full)+' · 1 manje 1,85 / 2 više 1,85</small><small class="premier-status" id="premier-status-'+p.id+'">Čeka analizu</small></div><b>'+p.line.toFixed(1)+'</b><div class="premier-est" id="premier-proj-'+p.id+'">—</div><div class="premier-signal premier-neutral" id="premier-signal-'+p.id+'">Nema procjene</div></div>').join('')+'</div>';
+ box.innerHTML='<div class="card">'+list.map(p=>'<div class="premier-row"><div><b>'+esc(p.name)+'</b><small>'+esc(p.team)+' · '+esc(p.full)+' · 1 manje 1,85 / 2 više 1,85</small><small class="premier-status" id="premier-status-'+p.id+'">Čeka analizu</small></div><b>'+p.line.toFixed(1)+'</b><div class="premier-est" id="premier-proj-'+p.id+'">—</div><div class="premier-signal premier-neutral" id="premier-signal-'+p.id+'">Čeka izračun</div></div>').join('')+'</div>';
 }
 function premierSetStatus(id,msg){const el=document.getElementById('premier-status-'+id);if(el)el.textContent=msg}
 function premierRenderProjection(p,projection,sd,minutes,injury,gameCount){
@@ -313,6 +313,15 @@ const DARKO_PTS_20261117={
  "Victor Wembanyama":26.9,"Stephon Castle":17.8,"De'Aaron Fox":14.6,
  "Darius Garland":21.2,"Devin Vassell":12.5
 };
+// Current matchup projections for players without a DARKO PTS/G entry (Nov 19, 2026).
+const PREMIER_MATCHUP_PTS={
+ "Jaime Jaquez Jr.":13.1,"Kyle Kuzma":10.9,"Brayden Burries":11.1,
+ "Deni Avdija":27.1,"Jrue Holiday":15.5,"Toumani Camara":13.0,
+ "Jaden McDaniels":15.6,"Jonathan Kuminga":14.2,"Rudy Gobert":8.5,
+ "Mikal Bridges":10.7,"Josh Hart":8.3,"Landry Shamet":9.7,
+ "Keldon Johnson":12.4,"Devin Vassell":12.4,"Julian Champagnie":10.7,
+ "Rui Hachimura":10.5,"Derrick Jones Jr.":9.3,"Brook Lopez":10.2
+};
 async function premierOneProjection(p){
  // Check the published DARKO points estimate first; do not require ESPN player search for it.
  const darkoPts=DARKO_PTS_20261117[p.full];
@@ -321,6 +330,16 @@ async function premierOneProjection(p){
   premierRenderProjection(p,darkoPts,0,null,injury,0);
   premierSetStatus(p.id,p.full+' · DARKO PTS/G · 17.11.2026'+(injury?' · '+injury.status:''));
   return {projection:darkoPts,sd:0,athlete:{name:p.full},injury,source:'DARKO'};
+ }
+ // Fill the estimate cell with a numeric projection before any network lookup.
+ const darkoPts=DARKO_PTS_20261117[p.full];
+ const matchupPts=PREMIER_MATCHUP_PTS[p.full];
+ const publishedPts=Number.isFinite(darkoPts)?darkoPts:matchupPts;
+ if(Number.isFinite(publishedPts)){
+  const injury=injuryData.find(x=>premierNormalize(x.name)===premierNormalize(p.full));
+  premierRenderProjection(p,publishedPts,0,null,injury,0);
+  premierSetStatus(p.id,p.full+(Number.isFinite(darkoPts)?' · DARKO PTS/G · 17.11.2026':' · projekcija utakmice · 19.11.2026')+(injury?' · '+injury.status:''));
+  return {projection:publishedPts,sd:0,athlete:{name:p.full},injury,source:Number.isFinite(darkoPts)?'DARKO':'matchup projection'};
  }
  const athlete=await resolvePremierPlayer(p.full);
  const injury=injuryData.find(x=>premierNormalize(x.name)===premierNormalize(athlete.name));

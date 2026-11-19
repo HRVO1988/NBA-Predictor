@@ -323,40 +323,29 @@ const PREMIER_MATCHUP_PTS={
  "Rui Hachimura":10.5,"Derrick Jones Jr.":9.3,"Brook Lopez":10.2
 };
 async function premierOneProjection(p){
- // Check the published DARKO points estimate first; do not require ESPN player search for it.
+ // 1) Use DARKO when an actual published player points estimate exists.
  const darkoPts=DARKO_PTS_20261117[p.full];
+ const injury=injuryData.find(x=>premierNormalize(x.name)===premierNormalize(p.full));
  if(Number.isFinite(darkoPts)){
-  const injury=injuryData.find(x=>premierNormalize(x.name)===premierNormalize(p.full));
   premierRenderProjection(p,darkoPts,0,null,injury,0);
   premierSetStatus(p.id,p.full+' · DARKO PTS/G · 17.11.2026'+(injury?' · '+injury.status:''));
   return {projection:darkoPts,sd:0,athlete:{name:p.full},injury,source:'DARKO'};
  }
- // Fill the estimate cell with a numeric projection before any network lookup.
- const darkoPts=DARKO_PTS_20261117[p.full];
- const matchupPts=PREMIER_MATCHUP_PTS[p.full];
- const publishedPts=Number.isFinite(darkoPts)?darkoPts:matchupPts;
- if(Number.isFinite(publishedPts)){
-  const injury=injuryData.find(x=>premierNormalize(x.name)===premierNormalize(p.full));
-  premierRenderProjection(p,publishedPts,0,null,injury,0);
-  premierSetStatus(p.id,p.full+(Number.isFinite(darkoPts)?' · DARKO PTS/G · 17.11.2026':' · projekcija utakmice · 19.11.2026')+(injury?' · '+injury.status:''));
-  return {projection:publishedPts,sd:0,athlete:{name:p.full},injury,source:Number.isFinite(darkoPts)?'DARKO':'matchup projection'};
- }
+ // 2) Try ESPN game logs as the independent fallback source.
  const athlete=await resolvePremierPlayer(p.full);
- const injury=injuryData.find(x=>premierNormalize(x.name)===premierNormalize(athlete.name));
- const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);
- const log=await getRecentGames(athlete.id,season);
+ const log=await getRecentGames(athlete.id,new Date().getFullYear()+(new Date().getMonth()>=9?1:0));
  const vals=extractRecentMetric(log,'points'),mins=extractRecentMetric(log,'minutes');
- if(vals.length<3)throw Error('Nema DARKO procjene za ovog igrača, a ESPN nema najmanje 3 utakmice');
+ if(vals.length<3)throw Error('DARKO nema javnu projekciju; ESPN nije vratio dovoljno utakmica');
  const last10=vals.slice(0,10),last5=last10.slice(0,5);
- const avg10=last10.reduce((s,v)=>s+v,0)/last10.length;
- const avg5=last5.reduce((s,v)=>s+v,0)/last5.length;
- const min5=mins.length>=3?mins.slice(0,5).reduce((s,v)=>s+v,0)/Math.min(5,mins.length):null;
- const min10=mins.length>=3?mins.slice(0,10).reduce((s,v)=>s+v,0)/Math.min(10,mins.length):null;
+ const avg10=last10.reduce((sum,v)=>sum+v,0)/last10.length;
+ const avg5=last5.reduce((sum,v)=>sum+v,0)/last5.length;
+ const min5=mins.length>=3?mins.slice(0,5).reduce((sum,v)=>sum+v,0)/Math.min(5,mins.length):null;
+ const min10=mins.length>=3?mins.slice(0,10).reduce((sum,v)=>sum+v,0)/Math.min(10,mins.length):null;
  const minuteFactor=min5!==null&&min10>0?Math.max(.85,Math.min(1.15,min5/min10)):1;
  const projection=(avg5*.65+avg10*.35)*minuteFactor;
- const sd=Math.sqrt(last10.reduce((s,v)=>s+(v-avg10)**2,0)/last10.length)||1;
+ const sd=Math.sqrt(last10.reduce((sum,v)=>sum+(v-avg10)**2,0)/last10.length)||1;
  premierRenderProjection(p,projection,sd,min5,injury,last10.length);
- premierSetStatus(p.id,athlete.name+' · ESPN forma (DARKO nije dostupan)'+(injury?' · '+injury.status:''));
+ premierSetStatus(p.id,athlete.name+' · ESPN zadnjih '+last10.length+' utakmica'+(injury?' · '+injury.status:''));
  return {projection,sd,athlete,injury,source:'ESPN'};
 }
 async function calculatePremierPredictions(){

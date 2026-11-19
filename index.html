@@ -413,7 +413,7 @@ function matchDropCoveragePts(rows,fullName){
 }
 // Team codes used in the Premier offer; ESPN scoreboard supplies the live team IDs and opponents.
 const PREMIER_TEAM_ALIASES={MIL:['MIL','MILWAUKEE','MILWAUKEEBUCKS'],POR:['POR','PORTLAND','PORTLANDTRAILBLAZERS'],MIN:['MIN','MINNESOTA','MINNESOTATIMBERWOLVES'],NY:['NY','NYK','NEWYORK','NEWYORKKNICKS'],SA:['SA','SAS','SANANTONIO','SANANTONIOSPURS'],LAC:['LAC','LACLIPPERS','LOSANGELESCLIPPERS']};
-let premierTonightGames=null,premierRosterCache={};
+let premierTonightGames=null,premierRosterCache={},premierRosterPromises={};
 function premierTeamMatches(code,abbr,name){
  const aliases=PREMIER_TEAM_ALIASES[code]||[code];
  const values=[abbr,name].map(x=>String(x||'').toUpperCase().replace(/[^A-Z]/g,''));
@@ -430,36 +430,45 @@ async function loadPremierTonightGames(){
 }
 async function loadPremierRoster(teamId){
  if(premierRosterCache[teamId])return premierRosterCache[teamId];
- const r=await fetchTimeout(API+'/teams/'+encodeURIComponent(teamId)+'/roster',15000);
- if(!r.ok)throw Error('Roster nije dostupan');
- const data=await r.json(),players=[];
- function scan(x){
-  if(!x||typeof x!=='object')return;
-  if(Array.isArray(x)){x.forEach(scan);return}
-  const athlete=x.athlete||x;
-  const name=athlete.displayName||athlete.fullName;
-  const id=athlete.id;
-  if(name&&id&&!players.some(p=>String(p.id)===String(id)))players.push({id:String(id),name:String(name)});
-  Object.values(x).forEach(v=>{if(v&&typeof v==='object')scan(v)});
- }
- scan(data);
- premierRosterCache[teamId]=players;
- return players;
+ if(premierRosterPromises[teamId])return premierRosterPromises[teamId];
+ premierRosterPromises[teamId]=(async()=>{
+  const r=await fetchTimeout(API+'/teams/'+encodeURIComponent(teamId)+'/roster',15000);
+  if(!r.ok)throw Error('Roster nije dostupan');
+  const data=await r.json(),players=[];
+  function scan(x){
+   if(!x||typeof x!=='object')return;
+   if(Array.isArray(x)){x.forEach(scan);return}
+   const athlete=x.athlete||x;
+   const name=athlete.displayName||athlete.fullName;
+   const id=athlete.id;
+   if(name&&id&&!players.some(p=>String(p.id)===String(id)))players.push({id:String(id),name:String(name)});
+   Object.values(x).forEach(v=>{if(v&&typeof v==='object')scan(v)});
+  }
+  scan(data);
+  premierRosterCache[teamId]=players;
+  return players;
+ })().catch(e=>{delete premierRosterPromises[teamId];throw e});
+ return premierRosterPromises[teamId];
 }
 async function premierGetMatchup(p){
  const games=await loadPremierTonightGames();
- const game=games.find(g=>g.teams.some(t=>premierTeamMatches(p.team,t.abbr,t.name)));
- if(!game)throw Error('Momčad igrača nema utakmicu na današnjem rasporedu.');
- const own=game.teams.find(t=>premierTeamMatches(p.team,t.abbr,t.name));
- const opp=game.teams.find(t=>t.id!==own.id);
- if(!own?.id||!opp?.id)throw Error('Protivnik nije potvrđen na rasporedu.');
- const [ownRoster,oppRoster]=await Promise.all([loadPremierRoster(own.id),loadPremierRoster(opp.id)]);
- const rosterEntry=ownRoster.find(x=>premierNormalize(x.name)===premierNormalize(p.full));
- return {game,own,opp,ownRoster,oppRoster,onRoster:!!rosterEntry,rosterName:rosterEntry?.name||null};
+ const tonightTeams=games.flatMap(g=>g.teams.map(t=>({...t,game:g}))).filter(t=>t.id);
+ if(!tonightTeams.length)throw Error('Nema potvrđenih utakmica večeras.');
+ const rosters=await Promise.all(tonightTeams.map(async t=>({team:t,roster:await loadPremierRoster(t.id)})));
+ const normalized=premierNormalize(p.full);
+ const match=rosters.find(x=>x.roster.some(a=>premierNormalize(a.name)===normalized));
+ if(!match)throw Error('Igrač nije pronađen ni na jednom aktualnom rosteru momčadi koje večeras igraju.');
+ const own=match.team;
+ const opp=own.game.teams.find(t=>t.id!==own.id);
+ if(!opp?.id)throw Error('Protivnik nije potvrđen na rasporedu.');
+ const ownRoster=match.roster;
+ const oppRoster=await loadPremierRoster(opp.id);
+ const rosterEntry=ownRoster.find(x=>premierNormalize(x.name)===normalized);
+ return {game:own.game,own,opp,ownRoster,oppRoster,onRoster:!!rosterEntry,rosterName:rosterEntry?.name||null};
 }
 async function premierOneProjection(p){
- const injury=injuryData.find(x=>premierNormalize(x.name)===premierNormalize(p.full));
  const matchup=await premierGetMatchup(p);
+ const injury=injuryData.find(x=>premierNormalize(x.name)===premierNormalize(p.full));
  if(!matchup.onRoster)throw Error('Igrač nije pronađen na aktualnom rosteru '+matchup.own.name+'; provjeri Premier popis.');
  const athlete=await resolvePremierPlayer(p.full);
  const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);
@@ -480,8 +489,9 @@ async function premierOneProjection(p){
  estimate*=defenseFactor;
  // Teammate availability and full-roster context: confirmed absences modestly raise usage,
  // while a player's own OUT status blocks a positive recommendation.
- const unavailable=injuryData.filter(x=>isUnavailable(x)&&(!x.team||premierTeamMatches(p.team,'',x.team)));
- const questionable=injuryData.filter(x=>isQuestionable(x)&&(!x.team||premierTeamMatches(p.team,'',x.team)));
+ const actualTeamName=matchup.own.name||'';
+ const unavailable=injuryData.filter(x=>isUnavailable(x)&&(!x.team||premierNormalize(x.team)===premierNormalize(actualTeamName)));
+ const questionable=injuryData.filter(x=>isQuestionable(x)&&(!x.team||premierNormalize(x.team)===premierNormalize(actualTeamName)));
  if(unavailable.length)estimate*=1+Math.min(.08,unavailable.length*.015);
  if(injury&&isUnavailable(injury))estimate=0;
  const sd=Math.sqrt(last10.reduce((s,v)=>s+(v-avg10)**2,0)/last10.length)||1;
@@ -521,6 +531,8 @@ async function calculatePremierPredictions(){
 }
 function compare(){const l=document.getElementById('line').value,e=document.getElementById('estimate').value,res=document.getElementById('comparison');if(l===''||e===''){res.innerHTML='<p class="orange">Unesi obje vrijednosti.</p>';return}const d=Number(e)-Number(l);res.innerHTML='<div class="card"><h3>Rezultat usporedbe</h3><p>Statistika: '+esc(document.getElementById('statType').value)+'</p><p>Razlika: <b class="'+(d>0?'green':d<0?'orange':'')+'">'+(d>0?'+':'')+d.toFixed(1)+'</b></p><p>'+(d>0?'Procjena je iznad granice.':d<0?'Procjena je ispod granice.':'Procjena je jednaka granici.')+'</p></div>'}
 loadGames();renderPremierOffer();
+// Učitaj ESPN izvještaj o ozljedama prije prve projekcije; ostale funkcije ostaju nepromijenjene.
+(async()=>{try{const r=await fetchTimeout(API+'/injuries',15000);if(r.ok)injuryData=collectInjuries(await r.json())}catch(e){injuryData=[]}})();
 // Automatski pokreni izračun pri otvaranju aplikacije, bez čekanja na ponovni klik kartice.
 window.addEventListener('load',()=>{if(!premierAutoStarted){premierAutoStarted=true;calculatePremierPredictions()}});
 </script>

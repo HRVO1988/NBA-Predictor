@@ -339,11 +339,24 @@ function premierReadAverageMetric(data,metric){
  for(const group of (data?.categories||[])){value=readGroup(group);if(value!==null)return value;}
  return null;
 }
+// DARKO Fantasy Lab per-game projections, snapshot 17 Nov 2026.
+const DARKO_EXTRA_20261117={
+ "Tyler Herro":[4.2,4.4],"Myles Turner":[5.7,1.8],"Damian Lillard":[3.0,4.4],
+ "Deni Avdija":[6.5,6.3],"Donovan Clingan":[11.3,1.9],"LaMelo Ball":[4.5,6.2],
+ "Jaden McDaniels":[5.4,3.3],"Ayo Dosunmu":[4.1,4.2],"Jalen Brunson":[3.3,6.5],
+ "OG Anunoby":[5.3,2.2],"Karl-Anthony Towns":[11.8,4.3],"Victor Wembanyama":[11.0,3.6],
+ "Stephon Castle":[5.0,6.2],"De'Aaron Fox":[3.8,5.6],"Darius Garland":[2.9,7.3],
+ "Devin Vassell":[4.1,2.8]
+};
 async function premierEstimateExtraStats(p){
+ const darko=DARKO_EXTRA_20261117[p.full];
+ if(darko){
+  const result={rebounds:darko[0],assists:darko[1],games:0,basis:'DARKO Fantasy Lab · 17.11.2026'};
+  premierExtraResults[p.id]=result;premierRenderExtraStats(p.id,result);return result;
+ }
+ // Players not present in the published DARKO snapshot retain the existing statistical fallback.
  const cacheKey='nbaPremierAthlete_'+premierNormalize(p.full);
  let lastError=null;
- // ESPN overview contains explicit season averages (avgRebounds / avgAssists).
- // Retry once without a potentially stale cached athlete ID.
  for(let attempt=0;attempt<2;attempt++){
   try{
    if(attempt===1){try{localStorage.removeItem(cacheKey)}catch(e){}}
@@ -356,18 +369,14 @@ async function premierEstimateExtraStats(p){
    let assists=data?premierReadAverageMetric(data,'assists'):null;
    if(rebounds===null||assists===null){
     const statsResponse=await fetchTimeout(COMMON+'/athletes/'+encodeURIComponent(athlete.id)+'/stats?season='+season+'&seasontype=2',15000);
-    if(statsResponse.ok){
-     const stats=await statsResponse.json();
-     if(rebounds===null)rebounds=premierReadAverageMetric(stats,'rebounds');
-     if(assists===null)assists=premierReadAverageMetric(stats,'assists');
-    }
+    if(statsResponse.ok){const stats=await statsResponse.json();if(rebounds===null)rebounds=premierReadAverageMetric(stats,'rebounds');if(assists===null)assists=premierReadAverageMetric(stats,'assists');}
    }
-   if(rebounds===null||assists===null)throw Error('ESPN nije vratio sezonske prosjeke');
+   if(rebounds===null||assists===null)throw Error('Nema DARKO projekcije za ovog igrača; ESPN rezerva nije dostupna');
    const result={rebounds,assists,games:0,basis:'ESPN · sezonski prosjek'};
    premierExtraResults[p.id]=result;premierRenderExtraStats(p.id,result);return result;
   }catch(e){lastError=e;}
  }
- throw lastError||Error('Nema ESPN podataka');
+ throw lastError||Error('Nema projekcije');
 }
 function premierNormalize(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'')}
 async function resolvePremierPlayer(fullName){

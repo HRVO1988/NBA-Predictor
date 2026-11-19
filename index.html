@@ -55,7 +55,7 @@
 <div id="predictionResult"></div>
 <div class="notice">Procjena je statistički model, ne sigurna prognoza. Ako izvor ne daje podatak o obrani, ozljedama ili zamjeni, aplikacija će to označiti umjesto da izmišlja vrijednosti.</div>
 </section>
-<section id="premier" class="section"><h2>📋 Premier ponuda — 31 igrača</h2><p class="muted">Granice i kvote prepisane iz tvojih snimki. 1 = MANJE (1,85), 2 = VIŠE (1,85). Aplikacija automatski traži aktualne ESPN game-logove i računa procjenu na temelju zadnjih 10 nastupa.</p><button class="action" id="premierRun" onclick="calculatePremierPredictions()">Izračunaj / osvježi svih 31 predikcija</button><p class="muted" id="premierProgress">Predikcije će se učitati iz aktualne sezone.</p><input id="premierSearch" placeholder="Pretraži igrača ili momčad…" oninput="renderPremierOffer()"><div id="premierOfferList"></div><p class="muted">Model: 65% prosjeka zadnjih 5 + 35% zadnjih 10, uz korekciju trenda minutaže. Ozljede se označavaju kad ih ESPN feed prepozna. Ovo nije garancija ishoda. Premierove nove kvote ne mogu se automatski dohvatiti dok Premier ne omogući dostupan javni feed.</p></section>
+<section id="premier" class="section"><h2>📋 Premier ponuda — 31 igrača</h2><p class="muted">Granice i kvote prepisane iz tvojih snimki. Procjena se automatski popunjava iz DARKO PTS/G gdje je javno prikazana (snapshot 17.11.2026); za ostale igrače koristi se ESPN forma kao rezerva. 1 = MANJE (1,85), 2 = VIŠE (1,85).</p><button class="action" id="premierRun" onclick="calculatePremierPredictions()">Izračunaj / osvježi svih 31 predikcija</button><p class="muted" id="premierProgress">Predikcije će se učitati iz aktualne sezone.</p><input id="premierSearch" placeholder="Pretraži igrača ili momčad…" oninput="renderPremierOffer()"><div id="premierOfferList"></div><p class="muted">Model: 65% prosjeka zadnjih 5 + 35% zadnjih 10, uz korekciju trenda minutaže. Ozljede se označavaju kad ih ESPN feed prepozna. Ovo nije garancija ishoda. Premierove nove kvote ne mogu se automatski dohvatiti dok Premier ne omogući dostupan javni feed.</p></section>
 <section id="live" class="section">
 <h2>📡 Stvarni poeni igrača uživo</h2>
 <p class="muted">Poeni se čitaju iz NBA boxscorea. Osvježi tijekom utakmice.</p>
@@ -305,12 +305,27 @@ async function resolvePremierPlayer(fullName){
  try{localStorage.setItem(cacheKey,ranked[0].id)}catch(e){}
  return ranked[0];
 }
+// DARKO Fantasy Lab: per-game PTS snapshot dated Nov 17, 2026.
+const DARKO_PTS_20261117={
+ "Tyler Herro":20.6,"Myles Turner":10.8,"Damian Lillard":19.2,"Deni Avdija":24.6,
+ "Donovan Clingan":10.9,"LaMelo Ball":19.4,"Jaden McDaniels":17.3,"Ayo Dosunmu":18.3,
+ "Jalen Brunson":26.5,"OG Anunoby":17.4,"Karl-Anthony Towns":19.9,
+ "Victor Wembanyama":26.9,"Stephon Castle":17.8,"De'Aaron Fox":14.6,
+ "Darius Garland":21.2,"Devin Vassell":12.5
+};
 async function premierOneProjection(p){
  const athlete=await resolvePremierPlayer(p.full);
+ const injury=injuryData.find(x=>premierNormalize(x.name)===premierNormalize(athlete.name));
+ const darkoPts=DARKO_PTS_20261117[athlete.name];
+ if(Number.isFinite(darkoPts)){
+  premierRenderProjection(p,darkoPts,0,null,injury,0);
+  premierSetStatus(p.id,athlete.name+' · DARKO PTS/G · 17.11.2026'+(injury?' · '+injury.status:''));
+  return {projection:darkoPts,sd:0,athlete,injury,source:'DARKO'};
+ }
  const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);
  const log=await getRecentGames(athlete.id,season);
  const vals=extractRecentMetric(log,'points'),mins=extractRecentMetric(log,'minutes');
- if(vals.length<3)throw Error('Nema najmanje 3 utakmice u aktualnoj sezoni');
+ if(vals.length<3)throw Error('DARKO nema prikazanu vrijednost za ovog igrača, a ESPN nema najmanje 3 utakmice');
  const last10=vals.slice(0,10),last5=last10.slice(0,5);
  const avg10=last10.reduce((s,v)=>s+v,0)/last10.length;
  const avg5=last5.reduce((s,v)=>s+v,0)/last5.length;
@@ -319,10 +334,9 @@ async function premierOneProjection(p){
  const minuteFactor=min5!==null&&min10>0?Math.max(.85,Math.min(1.15,min5/min10)):1;
  const projection=(avg5*.65+avg10*.35)*minuteFactor;
  const sd=Math.sqrt(last10.reduce((s,v)=>s+(v-avg10)**2,0)/last10.length)||1;
- const injury=injuryData.find(x=>premierNormalize(x.name)===premierNormalize(athlete.name));
  premierRenderProjection(p,projection,sd,min5,injury,last10.length);
- premierSetStatus(p.id,athlete.name+' · ESPN · '+(injury?injury.status:'status ozljede nije potvrđen'));
- return {projection,sd,athlete,injury};
+ premierSetStatus(p.id,athlete.name+' · ESPN forma (DARKO PTS nije dostupan)'+(injury?' · '+injury.status:''));
+ return {projection,sd,athlete,injury,source:'ESPN'};
 }
 async function calculatePremierPredictions(){
  if(premierRunning)return;
@@ -345,7 +359,7 @@ async function calculatePremierPredictions(){
   }
  });
  await Promise.all(workers);
- if(progress)progress.textContent='Završeno: '+ok+' procjena dostupno · '+failed+' igrača bez dovoljno podataka. Izvor: ESPN, aktualna sezona.';
+ if(progress)progress.textContent='Završeno: '+ok+' procjena dostupno · '+failed+' igrača bez dovoljno podataka. Izvor: DARKO gdje je dostupan; inače ESPN, aktualna sezona.';
  if(btn)btn.disabled=false;
  premierRunning=false;
 }

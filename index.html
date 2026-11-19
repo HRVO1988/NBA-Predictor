@@ -314,18 +314,20 @@ const DARKO_PTS_20261117={
  "Darius Garland":21.2,"Devin Vassell":12.5
 };
 async function premierOneProjection(p){
+ // Check the published DARKO points estimate first; do not require ESPN player search for it.
+ const darkoPts=DARKO_PTS_20261117[p.full];
+ if(Number.isFinite(darkoPts)){
+  const injury=injuryData.find(x=>premierNormalize(x.name)===premierNormalize(p.full));
+  premierRenderProjection(p,darkoPts,0,null,injury,0);
+  premierSetStatus(p.id,p.full+' · DARKO PTS/G · 17.11.2026'+(injury?' · '+injury.status:''));
+  return {projection:darkoPts,sd:0,athlete:{name:p.full},injury,source:'DARKO'};
+ }
  const athlete=await resolvePremierPlayer(p.full);
  const injury=injuryData.find(x=>premierNormalize(x.name)===premierNormalize(athlete.name));
- const darkoPts=DARKO_PTS_20261117[athlete.name];
- if(Number.isFinite(darkoPts)){
-  premierRenderProjection(p,darkoPts,0,null,injury,0);
-  premierSetStatus(p.id,athlete.name+' · DARKO PTS/G · 17.11.2026'+(injury?' · '+injury.status:''));
-  return {projection:darkoPts,sd:0,athlete,injury,source:'DARKO'};
- }
  const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);
  const log=await getRecentGames(athlete.id,season);
  const vals=extractRecentMetric(log,'points'),mins=extractRecentMetric(log,'minutes');
- if(vals.length<3)throw Error('DARKO nema prikazanu vrijednost za ovog igrača, a ESPN nema najmanje 3 utakmice');
+ if(vals.length<3)throw Error('Nema DARKO procjene za ovog igrača, a ESPN nema najmanje 3 utakmice');
  const last10=vals.slice(0,10),last5=last10.slice(0,5);
  const avg10=last10.reduce((s,v)=>s+v,0)/last10.length;
  const avg5=last5.reduce((s,v)=>s+v,0)/last5.length;
@@ -335,7 +337,7 @@ async function premierOneProjection(p){
  const projection=(avg5*.65+avg10*.35)*minuteFactor;
  const sd=Math.sqrt(last10.reduce((s,v)=>s+(v-avg10)**2,0)/last10.length)||1;
  premierRenderProjection(p,projection,sd,min5,injury,last10.length);
- premierSetStatus(p.id,athlete.name+' · ESPN forma (DARKO PTS nije dostupan)'+(injury?' · '+injury.status:''));
+ premierSetStatus(p.id,athlete.name+' · ESPN forma (DARKO nije dostupan)'+(injury?' · '+injury.status:''));
  return {projection,sd,athlete,injury,source:'ESPN'};
 }
 async function calculatePremierPredictions(){

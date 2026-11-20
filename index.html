@@ -567,7 +567,15 @@ let premierRunning=false;let premierAutoStarted=false;let premierAvailableIds=nu
 function renderPremierOffer(){
  const box=document.getElementById('premierOfferList');if(!box)return;
  const q=(document.getElementById('premierSearch')?.value||'').trim().toLowerCase();
- const list=PREMIER_PLAYERS.map((p,i)=>({name:p[0],team:p[1],line:p[2],id:i,full:PREMIER_FULL_NAMES[i]})).filter(p=>(p.name+' '+p.team+' '+p.full).toLowerCase().includes(q));
+ const list=PREMIER_PLAYERS.map((p,i)=>({name:p[0],team:p[1],line:p[2],id:i,full:PREMIER_FULL_NAMES[i]})).filter(p=>(p.name+' '+p.team+' '+p.full).toLowerCase().includes(q)).sort((a,b)=>{
+  const ra=premierProjectionResults[a.id],rb=premierProjectionResults[b.id];
+  const valid=r=>r&&Number.isFinite(Number(r.projection))&&!(r.injury&&isUnavailable(r.injury));
+  const av=valid(ra),bv=valid(rb);
+  if(av!==bv)return av?-1:1;
+  if(!av)return a.id-b.id;
+  const ad=Math.abs(Number(ra.projection)-a.line),bd=Math.abs(Number(rb.projection)-b.line);
+  return bd-ad||a.id-b.id;
+ });
  box.innerHTML='<div class="card">'+list.map(p=>'<div class="premier-row"><div><b>'+esc(p.name)+'</b><small>'+esc(p.team)+' · '+esc(p.full)+' · 1 manje 1,85 / 2 više 1,85</small><small class="premier-status" id="premier-status-'+p.id+'">'+esc(premierStatusResults[p.id]||'')+'</small><small class="premier-grade" id="premier-grade-'+p.id+'"></small></div><div class="premier-line">Granica Premier: <b>'+p.line.toFixed(1)+'</b></div><div class="premier-est" id="premier-proj-'+p.id+'">Moja prognoza: —</div><div class="premier-signal premier-neutral" id="premier-signal-'+p.id+'"></div><div class="premier-extra" id="premier-extra-'+p.id+'">Skokovi: — · Asistencije: —</div></div>').join('')+'</div>';
  list.forEach(p=>{const r=premierProjectionResults[p.id];if(r)premierRenderProjection(p,r.projection,r.sd,r.minutes,r.injury,r.gameCount,r.recentValues);const x=premierExtraResults[p.id];if(x)premierRenderExtraStats(p.id,x)});renderPremierGrades();
 }
@@ -1088,6 +1096,8 @@ async function calculatePremierPredictions(){
  });
  await Promise.all(workers);
  if(progress)progress.textContent='Obrađeno svih '+PREMIER_PLAYERS.length+': '+ok+' statističkih procjena · '+failed+' bez dovoljno dostupnih podataka (bez izmišljanja broja).'
+ // Nakon završetka izračuna presloži listu od najveće apsolutne razlike prema najmanjoj.
+ renderPremierOffer();
  if(btn)btn.disabled=false;
  renderPredictionHistory();
  premierRunning=false;

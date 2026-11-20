@@ -123,6 +123,8 @@ function buildPremierPlayerProfile(data){
  const three=numericStat(data,/^(3pa|threepointfieldgoalsattempted|threepointfieldgoalattemptspergame|threepointfieldgoalsattemptedpergame)$/i);
  const usage=numericStat(data,/^(usg|usagerate|usagepercentage|usagepercent)$/i);
  const ast=numericStat(data,/^(ast|assistspergame|assistpergame)$/i);
+ const mpg=numericStat(data,/^(min|minutes|avgminutes|minutespergame|mpg|avgmin)$/i);
+ const ppg=premierSeasonPointsAverage(data);
  const rate=fga>0&&Number.isFinite(three)?three/fga:null;
  let role='Rotacijski igrač';
  if(Number.isFinite(usage)&&usage>=27)role='Glavni kreator / prva napadačka opcija';
@@ -131,7 +133,7 @@ function buildPremierPlayerProfile(data){
  else if(Number.isFinite(rate)&&rate>=.42)role='Šuter bez lopte / spot-up';
  else if(Number.isFinite(fga)&&fga>=12)role='Sekundarni strijelac';
  else if(Number.isFinite(fga)&&fga>0&&fga<8)role='Dopunska napadačka uloga';
- return {fga,three,usage,ast,threeRate:rate,role};
+ return {fga,three,usage,ast,mpg,ppg,threeRate:rate,role};
 }
 function premierRoleShotFactor(profile){
  if(!profile)return {factor:1,detail:'bez korekcije uloge/šuta'};
@@ -1112,13 +1114,20 @@ async function premierOneProjection(p){
  }
  const n=Math.min(vals.length,mins.length,10),recentPts=vals.slice(0,n),recentMins=mins.slice(0,n);
  const weighted=(a)=>{let sum=0,w=0;for(let i=0;i<a.length;i++){const weight=i<5?1.35:0.8;sum+=a[i]*weight;w+=weight}return sum/w};
- const rate=weighted(recentPts.map((v,i)=>v/Math.max(1,recentMins[i])));
- const expectedMinutes=clampModel(weighted(recentMins),Math.max(8,Math.min(...recentMins)-4),Math.min(42,Math.max(...recentMins)+3));
- estimate=rate*expectedMinutes;
+ const recentRate=weighted(recentPts.map((v,i)=>v/Math.max(1,recentMins[i])));
+ const recentMinutes=weighted(recentMins);
+ // Sezonski prosjek minuta ima prednost kao baza; zadnje utakmice hvataju promjenu uloge.
+ const seasonMinutes=Number.isFinite(playerProfile?.mpg)&&playerProfile.mpg>=5&&playerProfile.mpg<=45?playerProfile.mpg:null;
+ const expectedMinutes=clampModel(seasonMinutes!==null?seasonMinutes*.70+recentMinutes*.30:recentMinutes,Math.max(8,Math.min(...recentMins)-4),Math.min(42,Math.max(...recentMins)+3));
+ const recentEstimate=recentRate*expectedMinutes;
+ // Kombiniraj učinak po minuti s aktualnim sezonskim prosjekom poena, kad je dostupan.
+ estimate=Number.isFinite(playerProfile?.ppg)&&playerProfile.ppg>0
+  ? recentEstimate*.60+playerProfile.ppg*.40
+  : recentEstimate;
  const roleShot=premierRoleShotFactor(playerProfile); estimate*=roleShot.factor;
  const slateForDefense=premierSlateSnapshot(p.full); const slateOpponent=slateForDefense?({CHA:'Charlotte Hornets',ATL:'Atlanta Hawks',BKN:'Brooklyn Nets',ORL:'Orlando Magic',IND:'Indiana Pacers',CLE:'Cleveland Cavaliers'}[slateForDefense[4]]||slateForDefense[4]):''; const position=premierPlayerPosition(p,athlete,playerProfile,log); const defenseByPosition=premierPositionDefenseAdjustment(position,matchup?.opp||slateOpponent);
  estimate*=defenseByPosition.factor;
- projectionSource=(usedPreviousSeason?'prošlosezonske stvarne utakmice · korekcija za ovu sezonu · ':'recentna produkcija po minuti i očekivana minutaža · ')+roleShot.detail+' · '+(position||'pozicija nije pronađena')+' · '+defenseByPosition.label;
+ projectionSource=(usedPreviousSeason?'prošlosezonske stvarne utakmice · korekcija za ovu sezonu · ':'recentna produkcija po minuti · ')+(seasonMinutes!==null?'sezonska minutaža '+seasonMinutes.toFixed(1)+' min · ':'')+(Number.isFinite(playerProfile?.ppg)?'sezonski prosjek '+playerProfile.ppg.toFixed(1)+' poena · ':'')+roleShot.detail+' · '+(position||'pozicija nije pronađena')+' · '+defenseByPosition.label;
  let ownContext={},oppContext={};
  if(matchup?.own?.id&&matchup?.opp?.id){
   [ownContext,oppContext]=await Promise.all([loadPremierTeamContext(matchup.own.id,season),loadPremierTeamContext(matchup.opp.id,season)]);

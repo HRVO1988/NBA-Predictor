@@ -1164,38 +1164,159 @@ if('serviceWorker' in navigator){window.addEventListener('load',async()=>{try{co
  const EURO_API='https://api-live.euroleague.net';
  let euroSeasonStatsCache={};
  function euroNorm(v){return String(v||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'')}
+ const euroGameCache={};
+ function euroNumber(v){
+  if(v===null||v===undefined||v==='')return null;
+  if(typeof v==='string'&&/^\\d{1,2}:\\d{2}$/.test(v)){const a=v.split(':').map(Number);return a[0]+a[1]/60}
+  const n=Number(String(v).replace(',','.').replace(/[^0-9.-]/g,''));
+  return Number.isFinite(n)?n:null;
+ }
  async function euroSeasonPlayerStats(season){
   if(euroSeasonStatsCache[season])return euroSeasonStatsCache[season];
-  const url=EURO_API+'/v3/competitions/E/statistics/players/traditional?SeasonMode=Single&SeasonCode=E'+(season-1)+'&statisticMode=PerGame&limit=500';
-  const d=await get(url);
-  const rows=[];
+  const url=EURO_API+'/v3/competitions/E/statistics/players/traditional?SeasonMode=Single&SeasonCode=E'+season+'&statisticMode=PerGame&limit=500';
+  const d=await get(url),rows=[];
   function walk(x){
    if(!x||typeof x!=='object')return;
    if(Array.isArray(x)){x.forEach(walk);return}
    const name=x.player_name||x.playerName||x.name||x.person_name;
    if(name){
-    const pick=(keys)=>{for(const k of keys){const v=x[k];if(v!==undefined&&v!==null&&v!=='' ){const n=Number(String(v).replace(',','.').replace(/[^0-9.-]/g,''));if(Number.isFinite(n))return n}}return null};
-    const row={name:String(name),minutes:pick(['minutes_played','minutesPlayed','minutes','avg_minutes','avgMinutes']),points:pick(['points_scored','pointsScored','points','avg_points','avgPoints']),rebounds:pick(['total_rebounds','totalRebounds','rebounds','avg_rebounds','avgRebounds']),assists:pick(['assistances','assists','avg_assists','avgAssists'])};
-    if(row.points!==null||row.rebounds!==null||row.assists!==null)rows.push(row);
+    const pick=keys=>{for(const k of keys){const n=euroNumber(x[k]);if(n!==null)return n}return null};
+    rows.push({name:String(name),playerCode:String(x.player_code||x.playerCode||x.code||''),teamCode:String(x.player_team_code||x.team_code||x.teamCode||''),teamName:String(x.player_team_name||x.team_name||x.teamName||''),minutes:pick(['minutes_played','minutesPlayed','minutes','avg_minutes','avgMinutes']),points:pick(['points_scored','pointsScored','points','avg_points','avgPoints']),rebounds:pick(['total_rebounds','totalRebounds','rebounds','avg_rebounds','avgRebounds']),assists:pick(['assistances','assists','avg_assists','avgAssists'])});
    }
    Object.values(x).forEach(v=>{if(v&&typeof v==='object')walk(v)});
   }
   walk(d);
-  if(!rows.length)throw Error('Službena statistika Eurolige trenutačno ne vraća podatke za ovu sezonu.');
-  euroSeasonStatsCache[season]=rows;
-  return rows;
+  if(!rows.length)throw Error('Službena statistika Eurolige trenutačno nije dostupna.');
+  euroSeasonStatsCache[season]=rows;return rows;
+ }
+ function euroFindPlayer(rows,name){
+  const target=euroNorm(name);
+  let p=rows.find(x=>euroNorm(x.name)===target);
+  if(!p)p=rows.find(x=>{const n=euroNorm(x.name);return n.includes(target)||target.includes(n)});
+  if(!p){const parts=target.match(/[a-z0-9]+/g)||[];p=rows.find(x=>{const n=euroNorm(x.name);return parts.length>=2&&parts.filter(t=>n.includes(t)).length>=2})}
+  return p||null;
+ }
+ async function euroGames(season){
+  const key='games-'+season;if(euroGameCache[key])return euroGameCache[key];
+  const d=await get(EURO_API+'/v2/competitions/E/seasons/E'+season+'/games?limit=500');
+  const rows=Array.isArray(d)?d:(d.data||d.games||[]);
+  euroGameCache[key]=rows;return rows;
+ }
+ async function euroBoxscore(season,gameCode){
+  const key='box-'+season+'-'+gameCode;if(euroGameCache[key])return euroGameCache[key];
+  const d=await get(EURO_API+'/v2/competitions/E/seasons/E'+season+'/games/'+encodeURIComponent(gameCode)+'/stats');
+  euroGameCache[key]=d;return d;
+ }
+ function euroFlatStats(obj){
+  const out={};function walk(x){
+   if(!x||typeof x!=='object')return;
+   if(Array.isArray(x)){x.forEach(walk);return}
+   for(const [k,v] of Object.entries(x)){
+    if(v!==null&&typeof v!=='object')out[String(k).toLowerCase().replace(/[^a-z0-9]/g,'')]=v;
+    else if(v&&typeof v==='object')walk(v);
+   }
+  }walk(obj);return out;
+ }
+ function euroPickStat(flat,keys){for(const k of keys){if(flat[k]!==undefined){const n=euroNumber(flat[k]);if(n!==null)return n}}return null}
+ function euroBoxTeams(box){
+  const local=box.local||box.Local||{},road=box.road||box.Road||{};
+  return [{side:'local',data:local,players:local.players||local.Players||[]},{side:'road',data:road,players:road.players||road.Players||[]}];
+ }
+ function euroPlayerMatch(player,name){
+  const raw=player.player_name||player.playerName||player.name||player.person_name||player.player||'';
+  const a=euroNorm(raw),b=euroNorm(name);if(a===b||a.includes(b)||b.includes(a))return true;
+  const tokens=b.match(/[a-z0-9]+/g)||[];return tokens.length>=2&&tokens.filter(t=>a.includes(t)).length>=2;
+ }
+ function euroGamePlayerRow(player){
+  const f=euroFlatStats(player);
+  return {minutes:euroPickStat(f,['minutes','min','timeplayed']),points:euroPickStat(f,['points','pts']),rebounds:euroPickStat(f,['totalrebounds','rebounds','reb','reboundstotal']),assists:euroPickStat(f,['assistances','assists','ast']),twoA:euroPickStat(f,['fieldgoals2attempted','fieldgoals2att','twopointersattempted','twoattempted','2fga']),twoM:euroPickStat(f,['fieldgoals2made','fieldgoals2m','twopointersmade','twomade','2fgm']),threeA:euroPickStat(f,['fieldgoals3attempted','fieldgoals3att','threepointersattempted','threeattempted','3fga']),threeM:euroPickStat(f,['fieldgoals3made','fieldgoals3m','threepointersmade','threemade','3fgm']),ftA:euroPickStat(f,['freethrowsattempted','ftattempted','fta']),ftM:euroPickStat(f,['freethrowsmade','ftmade','ftm'])};
+ }
+ async function euroCollectSeason(season,playerRow,name,maxGames){
+  if(!playerRow?.teamCode)return [];
+  const games=await euroGames(season),team=playerRow.teamCode.trim();
+  const played=games.filter(g=>{
+   const local=String(g.local_club_code||g.localClubCode||g.local_team_code||'').trim(),road=String(g.road_club_code||g.roadClubCode||g.road_team_code||'').trim();
+   const date=String(g.date||g.local_date||'').slice(0,10);
+   return (local===team||road===team)&&(g.played===true||g.played==='true'||g.game_status==='Played'||g.status==='Played')&&date;
+  }).sort((a,b)=>String(b.date||b.local_date).localeCompare(String(a.date||a.local_date))).slice(0,maxGames);
+  const out=[];
+  for(const g of played){
+   const code=g.gameCode??g.game_code??g.gamecode;if(code===undefined)continue;
+   try{
+    const box=await euroBoxscore(season,code),sides=euroBoxTeams(box),own=sides.find(x=>String(x.data.club_code||x.data.clubCode||x.data.team_code||'').trim()===team)||sides.find(x=>x.players.some(p=>euroPlayerMatch(p,name)));
+    if(!own)continue;
+    const player=own.players.find(p=>euroPlayerMatch(p,name));if(!player)continue;
+    const stat=euroGamePlayerRow(player);if(stat.minutes===null||stat.minutes<=0)continue;
+    const opponent=sides.find(x=>x!==own),oppFlat=euroFlatStats(opponent?.data?.total||opponent?.data?.team||opponent?.data||{});
+    out.push({...stat,date:g.date||g.local_date||'',opponent:opponent?.data?.club_name||opponent?.data?.clubName||'',oppPts:euroPickStat(oppFlat,['points','pts']),oppReb:euroPickStat(oppFlat,['totalrebounds','rebounds','reb']),oppAst:euroPickStat(oppFlat,['assistances','assists','ast'])});
+   }catch(e){console.warn('EuroLeague boxscore unavailable',season,code,e)}
+  }
+  return out;
+ }
+ function euroWeighted(rows,key){
+  const valid=rows.filter(x=>Number.isFinite(x[key])&&Number.isFinite(x.minutes)&&x.minutes>0);
+  if(!valid.length)return null;
+  let sum=0,weight=0;valid.forEach((x,i)=>{const w=i<3?1.8:i<6?1.25:.7;sum+=(x[key]/x.minutes)*w;weight+=w});
+  return sum/weight;
  }
  async function euroProjection(id,teamId,season,name){
-  const rows=await euroSeasonPlayerStats(season),target=euroNorm(name);
-  let player=rows.find(x=>euroNorm(x.name)===target);
-  if(!player)player=rows.find(x=>{const n=euroNorm(x.name);return n.includes(target)||target.includes(n)});
-  if(!player)throw Error('Igrač nije pronađen u službenoj statistici Eurolige za ovu sezonu. Provjeri ime igrača.');
-  const model={points:player.points,rebounds:player.rebounds,assists:player.assists};
-  if(!Number.isFinite(model.points)||!Number.isFinite(model.rebounds)||!Number.isFinite(model.assists))throw Error('Službeni podaci za ovog igrača nisu potpuni.');
-  const mins=Number.isFinite(player.minutes)?player.minutes:0;
-  model.tempo='Osnova: službeni prosjek Eurolige po utakmici';
-  model.matchup='Protivnik i obrambeni matchup nisu potvrđeni';
-  return {model,mins,n:'sezonski prosjek',opponent:'Nije potvrđen'};
+  const [currentRows,previousRows]=await Promise.all([euroSeasonPlayerStats(season),euroSeasonPlayerStats(season-1).catch(()=>[])]);
+  const current=euroFindPlayer(currentRows,name),previous=euroFindPlayer(previousRows,name);
+  if(!current&&!previous)throw Error('Nema pronađenih podataka za igrača u aktualnoj ni prošloj sezoni Eurolige.');
+  const currentGames=current?await euroCollectSeason(season,current,name,6):[];
+  const previousGames=previous?await euroCollectSeason(season-1,previous,name,4):[];
+  const all=[...currentGames,...previousGames.map(x=>({...x,priorSeason:true}))];
+  if(!all.length)throw Error('Nema dostupnih boxscore podataka za nedavne utakmice ovog igrača.');
+  const weightedRate=key=>{
+   const vals=all.filter(x=>Number.isFinite(x[key])&&x.minutes>0);
+   if(!vals.length)return null;
+   let sum=0,w=0;vals.forEach((x,i)=>{const weight=x.priorSeason?.55:(i<3?1.8:i<6?1.25:.8);sum+=(x[key]/x.minutes)*weight;w+=weight});return sum/w;
+  };
+  const currentMinutes=currentGames.filter(x=>x.minutes>0).slice(0,5),priorMinutes=previousGames.filter(x=>x.minutes>0).slice(0,4);
+  const minuteAvg=arr=>arr.length?arr.reduce((a,b)=>a+b.minutes,0)/arr.length:null;
+  let mins=minuteAvg(currentMinutes);if(mins===null)mins=minuteAvg(priorMinutes);if(mins===null)mins=Number(current?.minutes||previous?.minutes||25);
+  mins=Math.max(5,Math.min(38,mins));
+  const model={};
+  for(const key of ['points','rebounds','assists']){const rate=weightedRate(key);if(rate===null)throw Error('Nedostaje '+key+' statistika u boxscoreu.');model[key]=rate*mins}
+  const shooting={twoA:weightedRate('twoA'),twoM:weightedRate('twoM'),threeA:weightedRate('threeA'),threeM:weightedRate('threeM'),ftA:weightedRate('ftA'),ftM:weightedRate('ftM')};
+  if(shooting.twoA!==null&&shooting.twoM!==null&&shooting.threeA!==null&&shooting.threeM!==null&&shooting.ftA!==null&&shooting.ftM!==null){
+   const expected=(shooting.twoM*2+shooting.threeM*3+shooting.ftM)*mins;
+   model.points=model.points*.55+expected*.45;
+   model.shotNote='Model šuteva: 2P '+(shooting.twoA*mins).toFixed(1)+' · 3P '+(shooting.threeA*mins).toFixed(1)+' · slobodna '+(shooting.ftA*mins).toFixed(1);
+  }else model.shotNote='Broj pokušaja šuta nije potpuno dostupan; korišteni su poeni po minuti';
+  let opponent='Nije potvrđen',matchupText='Obrana protivnika nije potvrđena';
+  try{
+   const schedule=await euroGames(season),team=current?.teamCode||previous?.teamCode;
+   const now=Date.now(),next=schedule.filter(g=>{
+    const local=String(g.local_club_code||g.localClubCode||'').trim(),road=String(g.road_club_code||g.roadClubCode||'').trim(),date=new Date(g.date||g.local_date||'').getTime();
+    return team&&(local===team||road===team)&&Number.isFinite(date)&&date>=now&&!(g.played===true||g.played==='true');
+   }).sort((a,b)=>new Date(a.date||a.local_date)-new Date(b.date||b.local_date))[0];
+   if(next){
+    const local=String(next.local_club_code||next.localClubCode||'').trim(),road=String(next.road_club_code||next.roadClubCode||'').trim(),isHome=local===team;
+    opponent=isHome?(next.road_club_name||next.roadClubName||'Protivnik'):(next.local_club_name||next.localClubName||'Protivnik');
+    const oppCode=isHome?road:local;
+    const oppGames=schedule.filter(g=>{
+     const l=String(g.local_club_code||g.localClubCode||'').trim(),r=String(g.road_club_code||g.roadClubCode||'').trim(),dt=new Date(g.date||g.local_date||'').getTime();
+     return (l===oppCode||r===oppCode)&&dt<now&&(g.played===true||g.played==='true');
+    }).sort((a,b)=>new Date(b.date||b.local_date)-new Date(a.date||a.local_date)).slice(0,3);
+    const allowed=[];
+    for(const g of oppGames){const code=g.gameCode??g.game_code??g.gamecode;if(code===undefined)continue;try{
+     const box=await euroBoxscore(season,code),sides=euroBoxTeams(box),side=sides.find(x=>String(x.data.club_code||x.data.clubCode||x.data.team_code||'').trim()===oppCode),other=sides.find(x=>x!==side),f=euroFlatStats(other?.data?.total||other?.data?.team||other?.data||{});
+     if(f){const pts=euroPickStat(f,['points','pts']),reb=euroPickStat(f,['totalrebounds','rebounds','reb']),ast=euroPickStat(f,['assistances','assists','ast']);if(pts!==null)allowed.push({points:pts,rebounds:reb,assists:ast})}
+    }catch(e){}}
+    if(allowed.length){
+     const avg=k=>{const a=allowed.map(x=>x[k]).filter(Number.isFinite);return a.length?a.reduce((x,y)=>x+y,0)/a.length:null};
+     const p=avg('points'),r=avg('rebounds'),a=avg('assists');
+     const adjust=(v,stat,base,cap)=>{if(stat===null)return v;return v*clampModel(1+(stat-base)/cap,.94,1.06)};
+     model.points=adjust(model.points,p,80,900);
+     model.rebounds=adjust(model.rebounds,r,32,450);
+     model.assists=adjust(model.assists,a,18,300);
+     matchupText='Obrambeni učinak protivnika iz zadnje '+allowed.length+' utakmice';
+    }else matchupText='Protivnik: '+opponent+' · nema dovoljno podataka o obrani';
+   }
+  }catch(e){matchupText='Obrambeni matchup nije dostupan'}
+  model.tempo='Minutaža procijenjena iz zadnjih nastupa';
+  return {model,mins,n:currentGames.length+' aktualnih + '+previousGames.length+' prošlih',opponent};
  }
  async function stats(id,name,teamId){
   const out=$('elPlayerStats');out.innerHTML='<div class="card">Učitavam službene sezonske podatke za '+esc(name)+'…</div>';
@@ -1206,11 +1327,11 @@ if('serviceWorker' in navigator){window.addEventListener('load',async()=>{try{co
     euroProjection(id,teamId,season,name)
    ]);
    const s=d?read(d):{points:null,rebounds:null,assists:null},m=projection.model;
-   let html='<div class="card"><span class="tag">EUROLIGA · MODEL UTAKMICE</span><h3>'+esc(name)+'</h3><p class="muted">Protivnik: '+esc(projection.opponent)+' · očekivana minutaža: '+projection.mins.toFixed(1)+' · osnova: '+projection.n</p>';
+   let html='<div class="card"><span class="tag">EUROLIGA · MODEL UTAKMICE</span><h3>'+esc(name)+'</h3><p class="muted">Protivnik: '+esc(projection.opponent)+' · očekivana minutaža: '+projection.mins.toFixed(1)+' min · uzorak: '+projection.n+' utakmica</p>';
    [['Poeni',m.points],['Skokovi',m.rebounds],['Asistencije',m.assists]].forEach(([label,val])=>{
     html+='<div class="stat"><span>'+label+' · procjena aplikacije</span><b class="green">'+Math.max(0,val).toFixed(1)+'</b></div>';
    });
-   html+='<p class="muted">'+esc(m.tempo||'')+' · '+esc(m.matchup||'')+'</p><p class="muted">Procjena koristi službene prosjeke aktualne sezone Eurolige. Protivnik i individualni čuvar nisu potvrđeni.</p>';
+   html+='<p class="muted">'+esc(m.tempo||'')+' · '+esc(m.matchup||'')+' · '+esc(m.shotNote||'')+'</p><p class="muted">Procjena kombinira zadnje nastupe iz aktualne i prošle sezone, minute, pokušaje i realizaciju šuta te dostupne podatke o obrani protivnika. Individualni čuvar nije potvrđen.</p>';
    const seasonRows=[['Sezonski PPG',s.points],['Sezonski RPG',s.rebounds],['Sezonski APG',s.assists]];
    html+='<details><summary class="muted">Prikaži sezonske prosjeke samo kao informaciju</summary>';
    seasonRows.forEach(([label,val])=>{html+='<div class="stat"><span>'+label+'</span><b>'+(Number.isFinite(val)?val.toFixed(1):'—')+'</b></div>'});

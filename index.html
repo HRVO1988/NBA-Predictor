@@ -861,7 +861,7 @@ async function premierEstimateExtraStats(p){
 function premierNormalize(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'')}
 async function resolvePremierPlayer(fullName){
  const cacheKey='nbaPremierAthlete_'+premierNormalize(fullName);
- try{const cached=localStorage.getItem(cacheKey);if(cached)return {id:cached,name:fullName}}catch(e){}
+ // Pretraži i poziciju igrača; spremljeni ID sam po sebi nema podatak o poziciji.
  const url='https://site.web.api.espn.com/apis/search/v2?region=us&lang=en&query='+encodeURIComponent(fullName)+'&limit=30';
  const r=await fetchTimeout(url,15000);if(!r.ok)throw Error('ESPN pretraga nije dostupna');
  const data=await r.json(),found=[],seen=new Set();
@@ -869,7 +869,7 @@ async function resolvePremierPlayer(fullName){
   if(!x||typeof x!=='object')return;
   if(Array.isArray(x)){x.forEach(scan);return}
   const name=x.displayName||x.fullName||x.name,id=x.id||(x.uid&&String(x.uid).split(':').pop());
-  if(name&&id&&!seen.has(String(id))){seen.add(String(id));found.push({id:String(id),name:String(name)})}
+  if(name&&id&&!seen.has(String(id))){seen.add(String(id));found.push({id:String(id),name:String(name),position:premierExtractPosition(x)})}
   Object.values(x).forEach(v=>{if(v&&typeof v==='object')scan(v)});
  }
  scan(data);
@@ -982,6 +982,63 @@ async function loadPremierTeamContext(teamId,season){
  }catch(e){return {}}
 }
 function clampModel(v,lo,hi){return Math.max(lo,Math.min(hi,v))}
+
+// HoopsStats opponent points allowed by position (2026-27, through Nov 19, 2026).
+// Values are the Pts column transcribed from the five user-provided screenshots.
+const HOOPS_OPP_PTS_BY_POSITION={
+ PG:{BOS:21.4,OKC:21.5,GSW:23.1,PHI:23.8,ATL:23.9,MIN:24.0,NYK:24.2,DEN:24.4,DAL:24.4,SAS:24.9,TOR:24.9,IND:25.1,BKN:25.6,SAC:25.6,ORL:25.9,DET:26.3,WAS:26.4,LAL:26.6,POR:26.6,HOU:26.9,MEM:27.1,MIL:27.5,CHA:28.0,CHI:28.7,CLE:29.1,UTA:29.7,PHX:30.6,LAC:31.1,NOP:31.9,MIA:32.3},
+ SG:{DET:16.6,DEN:20.2,UTA:20.9,ORL:21.1,ATL:21.2,SAS:21.4,MEM:21.8,IND:21.9,LAC:22.0,SAC:22.0,MIN:22.4,NYK:22.5,HOU:22.6,WAS:22.7,OKC:22.9,CHA:23.2,DAL:23.5,TOR:23.8,BKN:23.8,NOP:23.9,CLE:24.4,GSW:24.4,PHI:24.6,MIL:24.8,PHX:25.6,BOS:25.9,MIA:26.4,CHI:26.4,POR:27.7,LAL:28.7},
+ C:{CHA:15.1,NYK:16.1,BOS:16.7,LAL:17.1,MIA:17.5,GSW:17.8,DEN:17.8,HOU:18.1,ORL:18.4,PHI:19.4,MIN:19.9,DET:20.1,LAC:20.2,MEM:20.2,OKC:20.3,IND:20.9,ATL:21.1,UTA:22.2,TOR:22.2,POR:22.3,DAL:22.7,CHI:22.7,BKN:22.9,WAS:22.9,MIL:23.0,CLE:23.1,SAS:23.1,PHX:23.7,NOP:24.0,SAC:24.2},
+ PF:{POR:16.5,SAS:18.2,PHX:19.1,MIN:20.6,DAL:20.9,MIA:21.1,LAC:21.1,TOR:21.2,NYK:21.8,ATL:21.8,MEM:21.9,HOU:22.1,IND:22.9,OKC:23.0,BOS:23.3,CLE:23.4,WAS:23.7,NOP:23.9,PHI:24.0,MIL:24.1,DET:24.6,LAL:24.9,SAC:25.0,UTA:25.1,GSW:25.6,CHA:25.6,BKN:25.9,CHI:25.9,ORL:28.1,DEN:29.5},
+ SF:{BOS:16.1,CLE:16.3,PHX:16.6,LAL:16.8,UTA:18.1,POR:18.1,CHA:18.5,SAS:18.7,MIN:18.9,NYK:19.0,NOP:19.1,ORL:19.2,HOU:19.3,PHI:19.9,OKC:19.9,TOR:19.9,DEN:20.2,CHI:20.9,BKN:21.1,MEM:21.1,DET:21.3,MIL:21.4,DAL:21.7,WAS:22.3,MIA:22.5,GSW:22.9,IND:23.1,LAC:23.6,SAC:24.6,ATL:26.8}
+};
+const HOOPS_TEAM_CODES={
+ BOSTON:'BOS',OKLAHOMACITY:'OKC',GOLDENSTATE:'GSW',PHILADELPHIA:'PHI',ATLANTA:'ATL',MINNESOTA:'MIN',NEWYORK:'NYK',DENVER:'DEN',DALLAS:'DAL',SANANTONIO:'SAS',TORONTO:'TOR',INDIANA:'IND',BROOKLYN:'BKN',SACRAMENTO:'SAC',ORLANDO:'ORL',DETROIT:'DET',WASHINGTON:'WAS',LOSANGELESLAKERS:'LAL',LAKERS:'LAL',PORTLAND:'POR',HOUSTON:'HOU',MEMPHIS:'MEM',MILWAUKEE:'MIL',CHARLOTTE:'CHA',CHICAGO:'CHI',CLEVELAND:'CLE',UTAH:'UTA',PHOENIX:'PHX',LACLIPPERS:'LAC',LOSANGELESCLIPPERS:'LAC',NEWORLEANS:'NOP',MIAMI:'MIA'
+};
+function premierPositionCode(value){
+ const raw=typeof value==='string'?value:(value?.abbreviation||value?.shortName||value?.displayName||value?.name||'');
+ const t=String(raw).toUpperCase().replace(/[^A-Z]/g,' ');
+ if(/\bPG\b|POINT GUARD/.test(t))return 'PG';
+ if(/\bSG\b|SHOOTING GUARD/.test(t))return 'SG';
+ if(/\bSF\b|SMALL FORWARD/.test(t))return 'SF';
+ if(/\bPF\b|POWER FORWARD/.test(t))return 'PF';
+ if(/\bC\b|CENTER/.test(t))return 'C';
+ if(/\bG\b|GUARD/.test(t))return 'PG';
+ if(/\bF\b|FORWARD/.test(t))return 'SF';
+ return null;
+}
+function premierExtractPosition(){
+ for(const source of arguments){
+  let found=null;
+  function walk(x){
+   if(!x||typeof x!=='object'||found)return;
+   if(Array.isArray(x)){x.forEach(walk);return}
+   for(const [k,v] of Object.entries(x)){
+    if(/^(position|pos)$/i.test(k)){found=premierPositionCode(v);if(found)return}
+   }
+   Object.values(x).forEach(v=>{if(v&&typeof v==='object')walk(v)});
+  }
+  if(typeof source==='string'){const p=premierPositionCode(source);if(p)return p}
+  else walk(source);
+  if(found)return found;
+ }
+ return null;
+}
+function premierOpponentCode(opponent){
+ const raw=String(opponent?.abbr||opponent?.name||opponent||'');
+ const norm=premierNormalize(raw).toUpperCase();
+ if(HOOPS_TEAM_CODES[norm])return HOOPS_TEAM_CODES[norm];
+ const known=['BOS','OKC','GSW','PHI','ATL','MIN','NYK','DEN','DAL','SAS','TOR','IND','BKN','SAC','ORL','DET','WAS','LAL','POR','HOU','MEM','MIL','CHA','CHI','CLE','UTA','PHX','LAC','NOP','MIA'];
+ return known.includes(norm)?norm:null;
+}
+function premierPositionDefenseAdjustment(position,opponent){
+ const code=premierOpponentCode(opponent),table=HOOPS_OPP_PTS_BY_POSITION[position];
+ if(!code||!table||!Number.isFinite(table[code]))return {factor:1,label:'HoopsStats matchup nije dostupan'};
+ const values=Object.values(table),leagueAverage=values.reduce((a,b)=>a+b,0)/values.length;
+ const allowed=table[code],delta=allowed-leagueAverage;
+ const factor=clampModel(1+delta*.008,.94,1.06);
+ return {factor,label:'HoopsStats '+position+' protiv '+code+': '+allowed.toFixed(1)+' (liga '+leagueAverage.toFixed(1)+', '+(delta>=0?'+':'')+delta.toFixed(1)+' poena)'};
+}
 async function premierOneProjection(p){
  const injury=findInjuryForPlayer(p.full);
  const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);
@@ -1023,11 +1080,11 @@ async function premierOneProjection(p){
   if(!(Number.isFinite(fallback)&&fallback>0))throw Error('Nema dostupne statističke osnove za poštenu procjenu; Premierova granica se ne koristi kao prognoza.');
   const snapshot=premierSlateSnapshot(p.full);
   const opponent=matchup?.opp?.name||(snapshot?({CHA:'Charlotte Hornets',ATL:'Atlanta Hawks',BKN:'Brooklyn Nets',ORL:'Orlando Magic',IND:'Indiana Pacers',CLE:'Cleveland Cavaliers'}[snapshot[4]]||snapshot[4]):'');
-  const roleShot=premierRoleShotFactor(playerProfile); const adjusted=fallback*roleShot.factor*(injury&&isQuestionable(injury)?0.92:1);
+  const roleShot=premierRoleShotFactor(playerProfile); const position=premierExtractPosition(athlete,playerProfile); const defenseByPosition=premierPositionDefenseAdjustment(position,matchup?.opp||opponent); const adjusted=fallback*roleShot.factor*defenseByPosition.factor*(injury&&isQuestionable(injury)?0.92:1);
   const fallbackSd=Math.max(2.5,adjusted*.20),fallbackMinutes=snapshot?snapshot[3]:30;
   savePremierHistory(p,Math.round(adjusted),athlete?.id||'');
   premierRenderProjection(p,Math.round(adjusted),fallbackSd,fallbackMinutes,injury, snapshot?10:0,[],opponent);
-  premierSetStatus(p.id,source+' · '+premierProfileText(playerProfile)+' · '+roleShot.detail+(opponent?' · protiv '+opponent:' · matchup nije potvrđen')+premierProjectionChange(p,Math.round(adjusted)));
+  premierSetStatus(p.id,source+' · '+premierProfileText(playerProfile)+' · '+roleShot.detail+' · '+(position||'pozicija nije pronađena')+' · '+defenseByPosition.label+(opponent?' · protiv '+opponent:' · matchup nije potvrđen')+premierProjectionChange(p,Math.round(adjusted)));
   return {projection:Math.round(adjusted),sd:fallbackSd,athlete,injury,source,opponent};
  }
  const n=Math.min(vals.length,mins.length,10),recentPts=vals.slice(0,n),recentMins=mins.slice(0,n);
@@ -1036,7 +1093,9 @@ async function premierOneProjection(p){
  const expectedMinutes=clampModel(weighted(recentMins),Math.max(8,Math.min(...recentMins)-4),Math.min(42,Math.max(...recentMins)+3));
  estimate=rate*expectedMinutes;
  const roleShot=premierRoleShotFactor(playerProfile); estimate*=roleShot.factor;
- projectionSource='recentna produkcija po minuti i očekivana minutaža · '+roleShot.detail;
+ const position=premierExtractPosition(athlete,playerProfile,log); const defenseByPosition=premierPositionDefenseAdjustment(position,matchup?.opp);
+ estimate*=defenseByPosition.factor;
+ projectionSource='recentna produkcija po minuti i očekivana minutaža · '+roleShot.detail+' · '+(position||'pozicija nije pronađena')+' · '+defenseByPosition.label;
  let ownContext={},oppContext={};
  if(matchup?.own?.id&&matchup?.opp?.id){
   [ownContext,oppContext]=await Promise.all([loadPremierTeamContext(matchup.own.id,season),loadPremierTeamContext(matchup.opp.id,season)]);

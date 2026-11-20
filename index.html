@@ -852,10 +852,10 @@ if('serviceWorker' in navigator){window.addEventListener('load',async()=>{try{co
   try{
    const season=new Date().getFullYear()+(new Date().getMonth()>=8?1:0);
    const [d,projection]=await Promise.all([
-    get(COMMON+'/athletes/'+encodeURIComponent(id)+'/stats?region=us&lang=en&contentorigin=espn&season='+season+'&seasontype=2'),
+    get(COMMON+'/athletes/'+encodeURIComponent(id)+'/stats?region=us&lang=en&contentorigin=espn&season='+season+'&seasontype=2').catch(()=>null),
     euroProjection(id,teamId,season)
    ]);
-   const s=read(d),m=projection.model;
+   const s=d?read(d):{points:null,rebounds:null,assists:null},m=projection.model;
    let html='<div class="card"><span class="tag">EUROLIGA · MODEL UTAKMICE</span><h3>'+esc(name)+'</h3><p class="muted">Protivnik: '+esc(projection.opponent)+' · očekivana minutaža: '+projection.mins.toFixed(1)+' · uzorak: '+projection.n+' zadnjih utakmica</p>';
    [['Poeni',m.points],['Skokovi',m.rebounds],['Asistencije',m.assists]].forEach(([label,val])=>{
     html+='<div class="stat"><span>'+label+' · procjena aplikacije</span><b class="green">'+Math.max(0,val).toFixed(1)+'</b></div>';

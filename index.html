@@ -342,35 +342,7 @@ function renderPremierOffer(){
  list.forEach(p=>{const r=premierProjectionResults[p.id];if(r)premierRenderProjection(p,r.projection,r.sd,r.minutes,r.injury,r.gameCount,r.recentValues);const x=premierExtraResults[p.id];if(x)premierRenderExtraStats(p.id,x)});renderPremierGrades();
 }
 
-const REBOUND_PICKS=[
-["Y. Lendeborg","GS","Yaxel Lendeborg",6.5,6.9,32,2.5],
-["C. Bassey","GS","Charles Bassey",6.5,7.3,20,2.8],
-["B. Podziemski","GS","Brandin Podziemski",4.5,4.8,32,2.1],
-["M. Turner","MIL","Myles Turner",4.5,6.0,26,2.7],
-["J. Jaquez Jr.","MIL","Jaime Jaquez Jr.",4.5,4.7,27,2.2],
-["K. Kuzma","MIL","Kyle Kuzma",4.5,5.2,28,2.5],
-["T. Herro","MIL","Tyler Herro",3.5,4.0,31,2.0],
-["D. Clingan","POR","Donovan Clingan",11.5,10.7,27,3.1],
-["C. Coward","MEM","Cedric Coward",6.5,7.4,30,2.7],
-["C. Boozer","MEM","Cameron Boozer",8.5,8.8,31,3.0],
-["Z. Edey","MEM","Zach Edey",7.5,8.4,22,3.0],
-["G. Santos","GS","Gui Santos",3.5,4.1,19,2.0],
-["D. Avdija","POR","Deni Avdija",6.5,6.2,33,2.8],
-["J. Holiday","POR","Jrue Holiday",3.5,3.6,27,1.9],
-["T. Camara","POR","Toumani Camara",4.5,4.2,30,2.1],
-["J. McDaniels","MIN","Jaden McDaniels",4.5,5.7,33,2.3],
-["V. Wembanyama","SA","Victor Wembanyama",11.5,10.7,30,3.2],
-["S. Castle","SA","Stephon Castle",4.5,4.9,29,2.2],
-["K. Johnson","SA","Keldon Johnson",4.5,4.7,22,2.1],
-["J. Champagnie","SA","Julian Champagnie",4.5,4.0,25,2.0],
-["OG Anunoby","NY","OG Anunoby",4.5,5.4,34,2.4],
-["J. Hart","NY","Josh Hart",5.5,6.6,30,2.6],
-["J. Brunson","NY","Jalen Brunson",2.5,3.4,36,1.8],
-["R. Gobert","MIN","Rudy Gobert",9.5,9.7,28,3.0],
-["J. Kuminga","MIN","Jonathan Kuminga",5.5,5.4,29,2.4],
-["LaMelo Ball","MIN","LaMelo Ball",3.5,4.3,30,2.1],
-["A. Dosunmu","MIN","Ayo Dosunmu",3.5,4.5,33,2.1]
-];
+const REBOUND_PICKS=PREMIER_PLAYERS.map((p,i)=>[p[0],p[1],PREMIER_FULL_NAMES[i],0,null,0,2.2]);
 function reboundSimulations(p){
  let seed=2166136261;const key=p[2]+'|2026-11-19';
  for(let i=0;i<key.length;i++){seed^=key.charCodeAt(i);seed=Math.imul(seed,16777619)}
@@ -385,44 +357,16 @@ function renderReboundPredictions(){
  const picks=REBOUND_PICKS.filter(p=>p.slice(0,3).join(' ').toLowerCase().includes(q));
  box.innerHTML=picks.length?'<div class="card">'+picks.map(p=>{
   const injury=findInjuryForPlayer(p[2]);
-  if(injury&&isUnavailable(injury))return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+' · '+p[5]+' min</small><small class="orange">OUT · '+esc(injuryStatusText(injury))+' · izbačen iz procjene</small></div><div class="premier-line">Premier: <b>'+p[3].toFixed(1)+'</b></div><div class="premier-est"><b class="orange">NEMA PROGNOZE</b></div><div class="premier-signal premier-under">OUT · ne igrati</div></div>';
-  const sim=reboundSimulations(p),projection=Math.round(sim.avg),diff=sim.avg-p[3],dir=diff>0.25?'VIŠE':diff< -0.25?'MANJE':'NA GRANICI';
-  return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+' · '+p[5]+' min'+(injury&&isQuestionable(injury)?' · UPITAN':'')+'</small></div><div class="premier-line">Premier: <b>'+p[3].toFixed(1)+'</b></div><div class="premier-est">Moja procjena: <b>'+projection+' skokova</b></div><div class="premier-signal '+(dir==='VIŠE'?'premier-over':dir==='MANJE'?'premier-under':'premier-neutral')+'">'+dir+'</div><small style="grid-column:1/-1;color:#aab4c5">10 simulacija: '+sim.vals.join(' · ')+' | prosjek '+sim.avg.toFixed(1)+' · modelirana projekcija '+p[4].toFixed(1)+injuryBadge(p[2])+'</small></div>';
+  if(injury&&isUnavailable(injury))return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+'</small><small class="orange">OUT · '+esc(injuryStatusText(injury))+' · bez prognoze</small></div><div class="premier-est"><b class="orange">NE IGRA</b></div></div>';
+  if(!Number.isFinite(p[4]))return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+'</small></div><div class="premier-est">Učitavam stvarne statistike…</div></div>';
+  const sim=reboundSimulations(p),projection=Math.round(sim.avg);
+  return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+' · '+p[5].toFixed(0)+' min'+(injury&&isQuestionable(injury)?' · UPITAN':'')+'</small></div><div class="premier-est">Realna procjena: <b>'+projection+' skokova</b></div><small style="grid-column:1/-1;color:#aab4c5">Zadnje utakmice: '+sim.vals.join(' · ')+' · prosjek '+p[4].toFixed(1)+injuryBadge(p[2])+'</small></div>';
  }).join('')+'</div>':'<div class="card">Nema igrača za traženi pojam.</div>';
 }
 renderReboundPredictions();
 
 
-const ASSIST_PICKS=[
-["V. Wembanyama","SA","Victor Wembanyama",2.5,3.6,30,2.0],
-["D. Garland","LAC","Darius Garland",6.5,7.1,34,2.5],
-["K. Dunn","LAC","Kris Dunn",3.5,3.1,22,1.7],
-["K. Wagner","LAC","Kobe Wagner",2.5,2.4,18,1.6],
-["OG Anunoby","NY","OG Anunoby",1.5,2.2,34,1.5],
-["D. Fox","SA","De'Aaron Fox",6.5,6.0,35,2.5],
-["D. Vassell","SA","Devin Vassell",2.5,2.8,31,1.8],
-["S. Castle","SA","Stephon Castle",6.5,6.2,31,2.4],
-["J. Kuminga","MIN","Jonathan Kuminga",2.5,2.5,28,1.7],
-["J. Hart","NY","Josh Hart",3.5,4.1,34,2.0],
-["J. Brunson","NY","Jalen Brunson",5.5,6.5,36,2.4],
-["K. A. Towns","NY","Karl-Anthony Towns",3.5,4.3,34,2.0],
-["J. Holiday","POR","Jrue Holiday",3.5,4.0,29,1.9],
-["La. Ball","MIN","LaMelo Ball",5.5,6.2,31,2.5],
-["J. McDaniels","MIN","Jaden McDaniels",2.5,2.4,32,1.6],
-["A. Dosunmu","MIN","Ayo Dosunmu",3.5,4.2,32,1.9],
-["J. Jaquez Jr.","MIL","Jaime Jaquez Jr.",3.5,3.1,27,1.8],
-["K. Kuzma","MIL","Kyle Kuzma",2.5,2.6,28,1.8],
-["D. Avdija","POR","Deni Avdija",4.5,6.0,34,2.4],
-["D. Lillard","POR","Damian Lillard",4.5,5.0,30,2.2],
-["B. Podziemski","GS","Brandin Podziemski",3.5,3.8,31,1.9],
-["Y. Lendeborg","GS","Yaxel Lendeborg",3.5,3.0,28,1.9],
-["T. Herro","MIL","Tyler Herro",3.5,4.4,32,2.0],
-["B. Burries","MIL","Brayden Burries",2.5,2.3,20,1.6],
-["C. Coward","MEM","Cedric Coward",3.5,2.8,29,1.8],
-["C. Boozer","MEM","Cameron Boozer",4.5,3.2,30,2.0],
-["Ty Jerome","MEM","Ty Jerome",4.5,4.7,27,2.0],
-["A. Horford","GS","Al Horford",2.5,2.8,22,1.6]
-];
+const ASSIST_PICKS=PREMIER_PLAYERS.map((p,i)=>[p[0],p[1],PREMIER_FULL_NAMES[i],0,null,0,1.8]);
 function assistSimulations(p){
  let seed=2166136261;const key=p[2]+'|'+nbaLocalDate();
  for(let i=0;i<key.length;i++){seed^=key.charCodeAt(i);seed=Math.imul(seed,16777619)}
@@ -437,13 +381,35 @@ function renderAssistPredictions(){
  const picks=ASSIST_PICKS.filter(p=>p.slice(0,3).join(' ').toLowerCase().includes(q));
  box.innerHTML=picks.length?'<div class="card">'+picks.map(p=>{
   const injury=findInjuryForPlayer(p[2]);
-  if(injury&&isUnavailable(injury))return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+' · '+p[5]+' min</small><small class="orange">OUT · '+esc(injuryStatusText(injury))+' · izbačen iz procjene</small></div><div class="premier-line">Premier: <b>'+p[3].toFixed(1)+'</b></div><div class="premier-est"><b class="orange">NEMA PROGNOZE</b></div><div class="premier-signal premier-under">OUT · ne igrati</div></div>';
-  const sim=assistSimulations(p),projection=Math.round(sim.avg),diff=sim.avg-p[3],dir=diff>0.25?'VIŠE':diff< -0.25?'MANJE':'NA GRANICI';
-  return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+' · '+p[5]+' min'+(injury&&isQuestionable(injury)?' · UPITAN':'')+'</small></div><div class="premier-line">Premier: <b>'+p[3].toFixed(1)+'</b></div><div class="premier-est">Moja procjena: <b>'+projection+' asist.</b></div><div class="premier-signal '+(dir==='VIŠE'?'premier-over':dir==='MANJE'?'premier-under':'premier-neutral')+'">'+dir+'</div><small style="grid-column:1/-1;color:#aab4c5">10 simulacija: '+sim.vals.join(' · ')+' | prosjek '+sim.avg.toFixed(1)+' · modelirana osnova '+p[4].toFixed(1)+injuryBadge(p[2])+'</small></div>';
+  if(injury&&isUnavailable(injury))return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+'</small><small class="orange">OUT · '+esc(injuryStatusText(injury))+' · bez prognoze</small></div><div class="premier-est"><b class="orange">NE IGRA</b></div></div>';
+  if(!Number.isFinite(p[4]))return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+'</small></div><div class="premier-est">Učitavam stvarne statistike…</div></div>';
+  const sim=assistSimulations(p),projection=Math.round(sim.avg);
+  return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+' · '+p[5].toFixed(0)+' min'+(injury&&isQuestionable(injury)?' · UPITAN':'')+'</small></div><div class="premier-est">Realna procjena: <b>'+projection+' asistencija</b></div><small style="grid-column:1/-1;color:#aab4c5">Zadnje utakmice: '+sim.vals.join(' · ')+' · prosjek '+p[4].toFixed(1)+injuryBadge(p[2])+'</small></div>';
  }).join('')+'</div>':'<div class="card">Nema igrača za traženi pojam.</div>';
 }
 renderAssistPredictions();
 
+
+async function refreshAllPlayerPropEstimates(){
+ const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);
+ const weightedAverage=values=>{const a=values.slice(0,10);let sum=0,w=0;a.forEach((v,i)=>{const weight=i<5?1.35:0.8;sum+=v*weight;w+=weight});return w?sum/w:null};
+ await Promise.all(PREMIER_PLAYERS.map(async(p,i)=>{
+  const full=PREMIER_FULL_NAMES[i];
+  try{
+   const athlete=await resolvePremierPlayer(full),log=await getRecentGames(athlete.id,season);
+   const reb=extractRecentMetric(log,'rebounds').map(x=>x.value),ast=extractRecentMetric(log,'assists').map(x=>x.value),mins=extractRecentMetric(log,'minutes').map(x=>x.value);
+   if(reb.length<3||ast.length<3)throw Error('Nedovoljno recentnih utakmica');
+   const r=weightedAverage(reb),a=weightedAverage(ast),m=weightedAverage(mins.length?mins:[30]);
+   const sd=(values,avg)=>Math.max(1,Math.sqrt(values.slice(0,10).reduce((sum,v)=>sum+Math.pow(v-avg,2),0)/Math.min(10,values.length)));
+   const rp=REBOUND_PICKS[i],ap=ASSIST_PICKS[i];
+   rp[4]=r;rp[5]=m||30;rp[6]=sd(reb,r);
+   ap[4]=a;ap[5]=m||30;ap[6]=sd(ast,a);
+   premierExtraResults[i]={rebounds:r,assists:a,games:Math.min(reb.length,ast.length),basis:'ESPN · zadnjih '+Math.min(reb.length,ast.length)+' utakmica'};
+   premierRenderExtraStats(i,premierExtraResults[i]);
+  }catch(e){console.warn('Prop estimate unavailable for '+full,e)}
+ }));
+ renderReboundPredictions();renderAssistPredictions();
+}
 const PREDICTION_HISTORY_KEY='nbaPredictorHistoryV1';
 function readPredictionHistory(){try{return JSON.parse(localStorage.getItem(PREDICTION_HISTORY_KEY)||'[]')}catch(e){return []}}
 function writePredictionHistory(items){try{localStorage.setItem(PREDICTION_HISTORY_KEY,JSON.stringify(items.slice(-250)))}catch(e){}}
@@ -808,6 +774,7 @@ setInterval(()=>refreshSharedInjuries(),60*60*1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&(!window.__injuryLastUpdated||Date.now()-window.__injuryLastUpdated>=60*60*1000))refreshSharedInjuries()});
 // Automatski pokreni izračun pri otvaranju aplikacije, bez čekanja na ponovni klik kartice.
 window.addEventListener('load',()=>{refreshPredictionHistory();if(!premierAutoStarted){premierAutoStarted=true;calculatePremierPredictions()}});
+window.addEventListener('load',()=>{refreshAllPlayerPropEstimates()});
 </script>
 <script>
 if('serviceWorker' in navigator){window.addEventListener('load',async()=>{try{const reg=await navigator.serviceWorker.register('./sw.js');await reg.update()}catch(e){}})}

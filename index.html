@@ -25,7 +25,7 @@
 <button onclick="show('players',this)">Igrači</button>
 
 <button onclick="show('premier',this)">Premier poeni</button><button onclick="show('rebounds',this)">Skokovi</button><button onclick="show('assists',this)">Asistencije</button>
-<button onclick="show('live',this)">Uživo poeni</button>
+
 <button onclick="show('euroleague',this)">🇪🇺 Euroliga</button>
 
 </nav>
@@ -72,14 +72,7 @@
 <div class="notice">Procjene se računaju iz učinka po minuti u zadnjih 10 utakmica, očekivane minutaže, tempa i obrane protivnika. Sezonski prosjek služi samo kao dodatna informacija, ne kao osnova prognoze. Ako nedostaju recentni podaci, aplikacija neće izmišljati procjenu.</div>
 </section>
 <section id="live" class="section">
-<h2>📡 Stvarni poeni igrača uživo</h2>
-<p class="muted">Poeni se čitaju iz NBA boxscorea. Osvježi tijekom utakmice.</p>
-<button class="action" onclick="loadLivePlayerPoints()">Osvježi poene igrača</button>
-<div class="notice">Premier granicu i kvote treba osvježiti iz službene ponude; javni Premier feed nije potvrđen. 1 = manje, 2 = više.</div>
-<div id="livePlayerPoints"><div class="card">Učitavam utakmice…</div></div>
-</section>
-
-<footer>NBA PREDICTOR<br>Informativni statistički alat. Nema jamstva dobitka.</footer>
+<h2>📡 Stvarni poeni. Nema jamstva dobitka.</footer>
 </main>
 <script>
 const API='https://site.api.espn.com/apis/site/v2/sports/basketball/nba';

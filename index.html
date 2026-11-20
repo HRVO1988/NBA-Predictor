@@ -760,7 +760,7 @@ async function premierOneProjection(p){
  const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);
  let matchup=null,athlete=null,log=null,playerProfile=null,vals=[],mins=[],estimate=null,projectionSource='';
  try{matchup=await premierGetMatchup(p)}catch(e){}
- try{athlete=await resolvePremierPlayer(p.full);const loaded=await Promise.all([getRecentGames(athlete.id,season),getPlayerStats(athlete.id)]);log=loaded[0];playerProfile=buildPremierPlayerProfile(loaded[1].data);vals=extractRecentMetric(log,'points');mins=extractRecentMetric(log,'minutes')}catch(e){}
+ try{athlete=await resolvePremierPlayer(p.full)}catch(e){} if(athlete){try{log=await getRecentGames(athlete.id,season);vals=extractRecentMetric(log,'points');mins=extractRecentMetric(log,'minutes')}catch(e){} try{const stats=await getPlayerStats(athlete.id);playerProfile=buildPremierPlayerProfile(stats.data)}catch(e){}}
  if(vals.length<3||mins.length<3){
   // Rezervna procjena kao ranije: javna projekcija DARKO / Drop Coverage / matchup snapshot.
   let fallback=null,source='';

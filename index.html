@@ -404,19 +404,22 @@ renderAssistPredictions();
 
 async function refreshAllPlayerPropEstimates(){
  const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);
- const weightedAverage=values=>{const a=values.slice(0,10);let sum=0,w=0;a.forEach((v,i)=>{const weight=i<5?1.35:0.8;sum+=v*weight;w+=weight});return w?sum/w:null};
+ const weighted=(values)=>{let sum=0,w=0;values.slice(0,10).forEach((v,i)=>{const weight=Math.pow(.88,i);sum+=v*weight;w+=weight});return w?sum/w:null};
+ const deviation=(values,avg)=>{const a=values.slice(0,10);return a.length?Math.max(0.8,Math.sqrt(a.reduce((sum,v)=>sum+(v-avg)**2,0)/a.length)):1.5};
  await Promise.all(PREMIER_PLAYERS.map(async(p,i)=>{
   const full=PREMIER_FULL_NAMES[i];
   try{
    const athlete=await resolvePremierPlayer(full),log=await getRecentGames(athlete.id,season);
-   const reb=extractRecentMetric(log,'rebounds').map(x=>x.value),ast=extractRecentMetric(log,'assists').map(x=>x.value),mins=extractRecentMetric(log,'minutes').map(x=>x.value);
-   if(reb.length<3||ast.length<3)throw Error('Nedovoljno recentnih utakmica');
-   const r=weightedAverage(reb),a=weightedAverage(ast),m=weightedAverage(mins.length?mins:[30]);
-   const sd=(values,avg)=>Math.max(1,Math.sqrt(values.slice(0,10).reduce((sum,v)=>sum+Math.pow(v-avg,2),0)/Math.min(10,values.length)));
+   const reb=extractRecentMetric(log,'rebounds'),ast=extractRecentMetric(log,'assists'),mins=extractRecentMetric(log,'minutes');
+   const n=Math.min(reb.length,ast.length,mins.length,10);
+   if(n<3)throw Error('Manje od 3 utakmice s potpunim podacima');
+   const m=weighted(mins.slice(0,n));
+   const rate=(rows)=>weighted(rows.slice(0,n).map((x,j)=>x.value/Math.max(1,mins[j])));
+   const r=Math.max(0,rate(reb)*m),a=Math.max(0,rate(ast)*m);
    const rp=REBOUND_PICKS[i],ap=ASSIST_PICKS[i];
-   rp[4]=r;rp[5]=m||30;rp[6]=sd(reb,r);
-   ap[4]=a;ap[5]=m||30;ap[6]=sd(ast,a);
-   premierExtraResults[i]={rebounds:r,assists:a,games:Math.min(reb.length,ast.length),basis:'ESPN · zadnjih '+Math.min(reb.length,ast.length)+' utakmica'};
+   rp[4]=r;rp[5]=m;rp[6]=deviation(reb.slice(0,n).map(x=>x.value),r);
+   ap[4]=a;ap[5]=m;ap[6]=deviation(ast.slice(0,n).map(x=>x.value),a);
+   premierExtraResults[i]={rebounds:r,assists:a,games:n,basis:'ESPN · zadnjih '+n+' utakmica · učinak po minuti × očekivana minutaža'};
    premierRenderExtraStats(i,premierExtraResults[i]);
   }catch(e){console.warn('Prop estimate unavailable for '+full,e)}
  }));
@@ -810,7 +813,7 @@ async function calculatePremierPredictions(){
  if(btn)btn.disabled=true;
  renderPremierOffer();
  let nextIndex=0,done=0,ok=0,failed=0;premierAvailableIds=new Set();
- if(progress)progress.textContent='Obrađujem igrače… 0 / 31';
+ if(progress)progress.textContent='Obrađujem igrače… 0 / '+PREMIER_PLAYERS.length+'';
  const workers=Array.from({length:3},async()=>{
   while(true){
    const i=nextIndex++;

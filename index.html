@@ -1198,7 +1198,7 @@ if('serviceWorker' in navigator){window.addEventListener('load',async()=>{try{co
   return {model,mins,n:'sezonski prosjek',opponent:'Nije potvrđen'};
  }
  async function stats(id,name,teamId){
-  const out=$('elPlayerStats');out.innerHTML='<div class="card">Analiziram zadnjih 10 utakmica za '+esc(name)+'…</div>';
+  const out=$('elPlayerStats');out.innerHTML='<div class="card">Učitavam službene sezonske podatke za '+esc(name)+'…</div>';
   try{
    const season=new Date().getFullYear()+(new Date().getMonth()>=8?1:0);
    const [d,projection]=await Promise.all([

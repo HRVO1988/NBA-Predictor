@@ -780,10 +780,93 @@ if('serviceWorker' in navigator){window.addEventListener('load',async()=>{try{co
   }
 }
  let timer;$('elPlayerSearch').addEventListener('input',()=>{clearTimeout(timer);const q=$('elPlayerSearch').value.trim();$('elPlayerStats').innerHTML='';if(q.length<2){$('elPlayerResults').textContent='Upiši najmanje 2 slova.';return}$('elPlayerResults').textContent='Pretražujem košarkaše…';timer=setTimeout(()=>search(q),400)});
- async function search(q){const b=$('elPlayerResults');try{const d=await get('https://site.web.api.espn.com/apis/search/v2?region=us&lang=en&query='+encodeURIComponent(q)+'&limit=40'),found=[],seen=new Set();function walk(x){if(!x||typeof x!=='object')return;if(Array.isArray(x)){x.forEach(walk);return}const name=x.displayName||x.fullName,id=x.id||(x.uid&&String(x.uid).split(':').pop()),team=x.team?.displayName||x.team?.name||x.subtitle||'',href=String(x.links?.web?.href||x.href||'');if(name&&id&&!seen.has(String(id))&&(href.includes('basketball')||x.sport?.slug==='basketball'||team)){seen.add(String(id));found.push({id:String(id),name,team})}Object.values(x).forEach(v=>{if(v&&typeof v==='object')walk(v)})}walk(d);const rows=found.filter(x=>x.name.toLowerCase().includes(q.toLowerCase())).slice(0,12);if(!rows.length){b.textContent='Igrač nije pronađen. Pokušaj puno ime i prezime.';return}b.innerHTML=rows.map(x=>'<button class="player-choice" data-id="'+esc(x.id)+'" data-name="'+esc(x.name)+'">'+esc(x.name)+'<small>'+esc(x.team||'Košarkaš')+'</small></button>').join('');b.querySelectorAll('button').forEach(x=>x.addEventListener('click',()=>stats(x.dataset.id,x.dataset.name)))}catch(e){b.textContent='Pretraživanje trenutačno nije dostupno.'}}
+ async function search(q){const b=$('elPlayerResults');try{const d=await get('https://site.web.api.espn.com/apis/search/v2?region=us&lang=en&query='+encodeURIComponent(q)+'&limit=40'),found=[],seen=new Set();function walk(x){if(!x||typeof x!=='object')return;if(Array.isArray(x)){x.forEach(walk);return}const name=x.displayName||x.fullName,id=x.id||(x.uid&&String(x.uid).split(':').pop()),team=x.team?.displayName||x.team?.name||x.subtitle||'',href=String(x.links?.web?.href||x.href||'');if(name&&id&&!seen.has(String(id))&&(href.includes('basketball')||x.sport?.slug==='basketball'||team)){seen.add(String(id));found.push({id:String(id),name,team,teamId:String(x.team?.id||x.team?.teamId||'')})}Object.values(x).forEach(v=>{if(v&&typeof v==='object')walk(v)})}walk(d);const rows=found.filter(x=>x.name.toLowerCase().includes(q.toLowerCase())).slice(0,12);if(!rows.length){b.textContent='Igrač nije pronađen. Pokušaj puno ime i prezime.';return}b.innerHTML=rows.map(x=>'<button class="player-choice" data-id="'+esc(x.id)+'" data-name="'+esc(x.name)+'" data-team-id="'+esc(x.teamId||'')+'">'+esc(x.name)+'<small>'+esc(x.team||'Košarkaš')+'</small></button>').join('');b.querySelectorAll('button').forEach(x=>x.addEventListener('click',()=>stats(x.dataset.id,x.dataset.name,x.dataset.teamId)))}catch(e){b.textContent='Pretraživanje trenutačno nije dostupno.'}}
  function read(data){const out={points:null,rebounds:null,assists:null},aliases={points:['avgpoints','pointspergame','ppg','points'],rebounds:['avgrebounds','reboundspergame','rpg','reb'],assists:['avgassists','assistspergame','apg','ast']};function walk(x){if(!x||typeof x!=='object')return;if(Array.isArray(x)){x.forEach(walk);return}const labels=(x.names||x.labels||x.abbreviations||[]).map(v=>String(v).toLowerCase().replace(/[^a-z]/g,'')),values=x.values||x.displayValues||x.stats||[];for(const k of Object.keys(aliases)){const i=labels.findIndex(v=>aliases[k].includes(v));if(out[k]===null&&i>=0&&values[i]!=null){const n=Number(String(values[i]).replace(/[^0-9.-]/g,''));if(Number.isFinite(n))out[k]=n}}const key=String(x.name||x.abbreviation||x.displayName||'').toLowerCase().replace(/[^a-z]/g,''),val=x.displayValue??x.value;for(const k of Object.keys(aliases)){if(out[k]===null&&aliases[k].includes(key)&&val!=null){const n=Number(String(val).replace(/[^0-9.-]/g,''));if(Number.isFinite(n))out[k]=n}}Object.values(x).forEach(v=>{if(v&&typeof v==='object')walk(v)})}walk(data);return out}
- function simulation(avg){const sd=Math.max(1,avg*.28),v=[];for(let i=0;i<1000;i++){const u=Math.random()||.0001,z=Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*Math.random());v.push(Math.max(0,avg+z*sd))}v.sort((a,b)=>a-b);return {mean:v.reduce((a,b)=>a+b,0)/v.length,low:v[49],high:v[949]}}
- async function stats(id,name){const out=$('elPlayerStats');out.innerHTML='<div class="card">Učitavam '+esc(name)+'…</div>';try{const season=new Date().getFullYear()+(new Date().getMonth()>=8?1:0),d=await get(COMMON+'/athletes/'+encodeURIComponent(id)+'/stats?region=us&lang=en&contentorigin=espn&season='+season+'&seasontype=2'),s=read(d),rows=[['Poeni',s.points],['Skokovi',s.rebounds],['Asistencije',s.assists]];if(!rows.some(x=>Number.isFinite(x[1]))){out.innerHTML='<div class="card"><b>'+esc(name)+'</b><p class="orange">Nema dostupnih sezonskih prosjeka u izvoru. Ne prikazujem izmišljene brojke.</p></div>';return}let html='<div class="card"><span class="tag">EUROLIGA · SEZONSKA STATISTIKA</span><h3>'+esc(name)+'</h3>';rows.forEach(([label,val])=>{if(!Number.isFinite(val)){html+='<div class="stat"><span>'+label+'</span><b>—</b></div>';return}const sim=simulation(val);html+='<div class="stat"><span>'+label+' po utakmici</span><b>'+val.toFixed(1)+'</b></div><div class="muted">Simulacija 1.000 scenarija: '+sim.mean.toFixed(1)+' · raspon 5–95%: '+sim.low.toFixed(1)+'–'+sim.high.toFixed(1)+'</div>'});html+='<p class="muted">Simulacija koristi sezonski prosjek i modeliranu varijabilnost; nije službena prognoza.</p></div>';out.innerHTML=html}catch(e){out.innerHTML='<div class="card orange">Statistika trenutačno nije dostupna za ovog igrača.</div>'}}
+ async function euroTeamContext(teamId,season){
+  if(!teamId)return {};
+  try{
+   const d=await get(API+'/teams/'+encodeURIComponent(teamId)+'/statistics?season='+season);
+   return {
+    pace:numericStat(d,/^(pace|possessionspergame|posspergame|teampossessionspergame)$/i),
+    defensiveRating:numericStat(d,/^(defensiverating|defrtg|defensiveefficiency)$/i),
+    pointsAllowed:numericStat(d,/^(opppts|pointsagainst|opponentpointspergame|ptsagainst)$/i)
+   };
+  }catch(e){return {}}
+ }
+ async function euroMatchup(teamId){
+  if(!teamId)return null;
+  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Sarajevo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()).replace(/-/g,'');
+  const d=await get(API+'/scoreboard?dates='+today+'&limit=100');
+  for(const g of (d.events||[])){
+   const c=g.competitions?.[0],teams=c?.competitors||[];
+   const own=teams.find(t=>String(t.team?.id)===String(teamId));
+   if(own){const opp=teams.find(t=>t!==own);return {own,opp,event:g}}
+  }
+  return null;
+ }
+ function euroMetric(data,metric){
+  const keys={points:['pts','points'],rebounds:['reb','rebounds'],assists:['ast','assists'],minutes:['min','minutes','mins']};
+  return extractRecentMetric(data,metric);
+ }
+ async function euroProjection(id,teamId,season){
+  const log=await get(COMMON+'/athletes/'+encodeURIComponent(id)+'/gamelog?season='+season+'&seasontype=2');
+  const vals={points:euroMetric(log,'points'),rebounds:euroMetric(log,'rebounds'),assists:euroMetric(log,'assists'),minutes:euroMetric(log,'minutes')};
+  const n=Math.min(10,vals.minutes.length,vals.points.length,vals.rebounds.length,vals.assists.length);
+  if(n<5)throw Error('Nema najmanje pet nedavnih utakmica s potpunim podacima. Ne koristim sezonske prosjeke.');
+  const weighted=a=>{let sum=0,w=0;for(let i=0;i<n;i++){const k=i<5?1.35:.8;sum+=a[i]*k;w+=k}return sum/w};
+  const mins=weighted(vals.minutes.slice(0,n));
+  const model={};
+  for(const key of ['points','rebounds','assists']){
+   const rate=weighted(vals[key].slice(0,n).map((v,i)=>v/Math.max(1,vals.minutes[i])));
+   model[key]=rate*mins;
+  }
+  let matchup=null,context={},opponent='Nije potvrđen';
+  try{
+   matchup=await euroMatchup(teamId);
+   if(matchup?.opp?.team?.id){
+    opponent=matchup.opp.team.displayName||matchup.opp.team.name||'Protivnik';
+    context=await euroTeamContext(matchup.opp.team.id,season);
+    const ownContext=await euroTeamContext(teamId,season);
+    const paces=[ownContext.pace,context.pace].filter(x=>Number.isFinite(x)&&x>50&&x<110);
+    if(paces.length){
+     const pace=paces.reduce((a,b)=>a+b,0)/paces.length;
+     const factor=clampModel(pace/75,.94,1.06);
+     Object.keys(model).forEach(k=>model[k]*=factor);
+     model.tempo='Tempo utakmice '+pace.toFixed(1);
+    }else model.tempo='Tempo nije dostupan';
+    if(Number.isFinite(context.defensiveRating)&&context.defensiveRating>80&&context.defensiveRating<130){
+     const factor=clampModel(1+(110-context.defensiveRating)/500,.94,1.06);
+     model.points*=factor;model.rebounds*=factor;model.assists*=factor;
+     model.matchup='Obrana protivnika '+context.defensiveRating.toFixed(1);
+    }else if(Number.isFinite(context.pointsAllowed)&&context.pointsAllowed>50&&context.pointsAllowed<120){
+     const factor=clampModel(1+(context.pointsAllowed-80)/500,.94,1.06);
+     model.points*=factor;model.rebounds*=factor;model.assists*=factor;
+     model.matchup='Primljeni poeni protivnika '+context.pointsAllowed.toFixed(1);
+    }else model.matchup='Obrambeni matchup nije dostupan';
+   }else{model.tempo='Tempo nije dostupan';model.matchup='Utakmica danas nije potvrđena'}
+  }catch(e){model.tempo='Tempo nije dostupan';model.matchup='Matchup nije potvrđen'}
+  return {model,mins,n,opponent};
+ }
+ async function stats(id,name,teamId){
+  const out=$('elPlayerStats');out.innerHTML='<div class="card">Analiziram zadnjih 10 utakmica za '+esc(name)+'…</div>';
+  try{
+   const season=new Date().getFullYear()+(new Date().getMonth()>=8?1:0);
+   const [d,projection]=await Promise.all([
+    get(COMMON+'/athletes/'+encodeURIComponent(id)+'/stats?region=us&lang=en&contentorigin=espn&season='+season+'&seasontype=2'),
+    euroProjection(id,teamId,season)
+   ]);
+   const s=read(d),m=projection.model;
+   let html='<div class="card"><span class="tag">EUROLIGA · MODEL UTAKMICE</span><h3>'+esc(name)+'</h3><p class="muted">Protivnik: '+esc(projection.opponent)+' · očekivana minutaža: '+projection.mins.toFixed(1)+' · uzorak: '+projection.n+' zadnjih utakmica</p>';
+   [['Poeni',m.points],['Skokovi',m.rebounds],['Asistencije',m.assists]].forEach(([label,val])=>{
+    html+='<div class="stat"><span>'+label+' · procjena aplikacije</span><b class="green">'+Math.max(0,val).toFixed(1)+'</b></div>';
+   });
+   html+='<p class="muted">'+esc(m.tempo||'')+' · '+esc(m.matchup||'')+'</p><p class="muted">Model koristi učinak po minuti iz zadnjih 10 nastupa (zadnjih 5 imaju veću težinu), očekivanu minutažu, tempo obje momčadi i obranu protivnika. Sezonski prosjek se ne koristi za izračun. Individualni čuvar nije potvrđen.</p>';
+   const seasonRows=[['Sezonski PPG',s.points],['Sezonski RPG',s.rebounds],['Sezonski APG',s.assists]];
+   html+='<details><summary class="muted">Prikaži sezonske prosjeke samo kao informaciju</summary>';
+   seasonRows.forEach(([label,val])=>{html+='<div class="stat"><span>'+label+'</span><b>'+(Number.isFinite(val)?val.toFixed(1):'—')+'</b></div>'});
+   html+='</details></div>';out.innerHTML=html;
+  }catch(e){out.innerHTML='<div class="card orange">'+esc(e&&e.message?e.message:'Statistika nije dostupna')+'</div><p class="muted">Aplikacija neće zamijeniti nedostajuće nedavne utakmice sezonskim prosjekom niti izmišljati procjenu.</p>'}
+ }
  loadOfficialClubs();games();
 })();
 </script>

@@ -130,6 +130,14 @@ async function getPlayerStats(id){const season=new Date().getFullYear()+(new Dat
 async function getRecentGames(id,season){const r=await fetchTimeout(COMMON+'/athletes/'+encodeURIComponent(id)+'/gamelog?region=us&lang=en&contentorigin=espn&season='+season+'&seasontype=2');if(!r.ok)throw Error('ESPN gamelog HTTP '+r.status);return r.json()}
 async function getOpponentDefense(teamId,season){if(!teamId)return null;try{const r=await fetchTimeout(API+'/teams/'+encodeURIComponent(teamId)+'/statistics?season='+season);if(!r.ok)return null;const d=await r.json();return numericStat(d,/^(opppts|pointsagainst|opponentpointspergame|ptsagainst)$/i)}catch(e){return null}}
 function injuryStatusText(x){return String(typeof x.status==='object'?JSON.stringify(x.status):x.status||'').toLowerCase()}function isUnavailable(x){return /out|inactive|ruled out|not playing|will not play|sidelined/i.test(injuryStatusText(x))}function isQuestionable(x){return /questionable|doubtful|day.to.day|game.time.decision|probable/i.test(injuryStatusText(x))}function findInjuryForPlayer(name){const wanted=premierNormalize(name);return injuryData.find(x=>premierNormalize(x.name)===wanted)||null}function injuryBadge(name){const injury=findInjuryForPlayer(name);if(!injury)return '';if(isUnavailable(injury))return ' · <b class="orange">OUT · ne igrati</b>';if(isQuestionable(injury))return ' · <b class="warning">'+esc(injuryStatusText(injury).toUpperCase())+'</b>';return ' · <b class="green">'+esc(injuryStatusText(injury).toUpperCase())+'</b>'}async function refreshSharedInjuries(){if(window.__injuryRefreshRunning)return;window.__injuryRefreshRunning=true;try{const r=await fetchTimeout(API+'/injuries',15000);if(!r.ok)throw Error('ESPN injury feed HTTP '+r.status);const data=await r.json(),next=collectInjuries(data);if(!Array.isArray(next))throw Error('Neispravan injury feed');const signature=a=>a.map(x=>premierNormalize(x.name)+'|'+injuryStatusText(x)+'|'+premierNormalize(x.team)).sort().join(';');const changed=signature(injuryData)!==signature(next);injuryData=next;window.__injuryLastUpdated=Date.now();renderPremierOffer();renderReboundPredictions();renderAssistPredictions();if(changed&&premierAutoStarted&&!premierRunning)calculatePremierPredictions();const stamp=document.getElementById('updated');if(stamp)stamp.textContent='Podaci utakmica: '+new Date().toLocaleTimeString('hr-HR')+' · Ozljede provjerene: '+new Date(window.__injuryLastUpdated).toLocaleTimeString('hr-HR')+' · ESPN';}catch(e){console.warn('NBA injury refresh failed',e)}finally{window.__injuryRefreshRunning=false}}function teammateOuts(){if(!selectedPredictPlayer)return [];return injuryData.filter(x=>isUnavailable(x)&&(!x.team||!selectedPredictPlayer.team||x.team.toLowerCase()===selectedPredictPlayer.team.toLowerCase()))}function playerInjury(){if(!selectedPredictPlayer)return null;return injuryData.find(x=>x.name.toLowerCase()===selectedPredictPlayer.name.toLowerCase())||null}
+function gamelogStatIndex(labels,stats,metric){
+ const wanted=({points:['pts','points'],rebounds:['reb','rebounds'],assists:['ast','assists'],minutes:['min','minutes','mins']})[metric]||[];
+ const norm=v=>String(v||'').toLowerCase().replace(/[^a-z]/g,'');
+ if(!Array.isArray(labels)||!Array.isArray(stats))return -1;
+ if(labels.length===stats.length)return labels.findIndex(v=>wanted.includes(norm(v)));
+ const compact=labels.filter(v=>!['date','opp','opponent','result','gameresult'].includes(norm(v)));
+ return compact.findIndex(v=>wanted.includes(norm(v)));
+}
 function extractRecentMetric(data,metric){
  const keys={points:['pts','points'],rebounds:['reb','rebounds'],assists:['ast','assists'],minutes:['min','minutes','mins']};
  const wanted=keys[metric]||[];
@@ -139,7 +147,7 @@ function extractRecentMetric(data,metric){
   if(!event||typeof event!=='object')return;
   const stats=event.stats||event.values||event.statistics||[];
   if(Array.isArray(labels)&&Array.isArray(stats)){
-   const idx=labels.findIndex(v=>wanted.includes(norm(v)));
+   const idx=gamelogStatIndex(labels,stats,metric);
    if(idx>=0&&stats[idx]!=null){
     const raw=stats[idx]?.displayValue??stats[idx]?.value??stats[idx];
     const n=Number(String(raw??'').replace(/[^0-9.-]/g,''));
@@ -465,9 +473,9 @@ async function refreshPredictionHistory(){
      if(Array.isArray(x)){x.forEach(v=>collect(v,inherited));return}
      const labs=x.labels||x.names||inherited||[];
      if(Array.isArray(x.events)){
-      x.events.forEach(ev=>{const stats=ev.stats||ev.values||[];const idx=labs.findIndex(v=>['pts','points'].includes(String(v).toLowerCase().replace(/[^a-z]/g,'')));if(idx>=0&&stats[idx]!=null)events.push({date:ev.date||ev.gameDate||ev.eventDate||'',value:Number(String(stats[idx]).replace(/[^0-9.-]/g,''))})});
+      x.events.forEach(ev=>{const stats=ev.stats||ev.values||[];const idx=gamelogStatIndex(labs,stats,'points');if(idx>=0&&stats[idx]!=null)events.push({date:ev.date||ev.gameDate||ev.eventDate||'',value:Number(String(stats[idx]).replace(/[^0-9.-]/g,''))})});
      }else if(x.events&&typeof x.events==='object'){
-      Object.values(x.events).forEach(ev=>{const stats=ev.stats||ev.values||[];const idx=labs.findIndex(v=>['pts','points'].includes(String(v).toLowerCase().replace(/[^a-z]/g,'')));if(idx>=0&&stats[idx]!=null)events.push({date:ev.date||ev.gameDate||ev.eventDate||'',value:Number(String(stats[idx]).replace(/[^0-9.-]/g,''))})});
+      Object.values(x.events).forEach(ev=>{const stats=ev.stats||ev.values||[];const idx=gamelogStatIndex(labs,stats,'points');if(idx>=0&&stats[idx]!=null)events.push({date:ev.date||ev.gameDate||ev.eventDate||'',value:Number(String(stats[idx]).replace(/[^0-9.-]/g,''))})});
      }
      if(Array.isArray(x.seasonTypes))x.seasonTypes.forEach(t=>collect(t,labs));
      if(Array.isArray(x.categories))x.categories.forEach(c=>collect(c,c.labels||labs));

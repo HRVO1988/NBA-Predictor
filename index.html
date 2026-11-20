@@ -125,6 +125,30 @@ function populateOpponents(events){const sel=document.getElementById('opponentSe
 let predictTimer;
 function selectPredictPlayer(btn){selectedPredictPlayer={id:btn.dataset.id,name:btn.dataset.name,team:btn.dataset.team,teamId:btn.dataset.teamid};const chosen=document.getElementById('predictSelected');chosen.innerHTML='<b>'+esc(selectedPredictPlayer.name)+'</b><div class="muted">'+esc(selectedPredictPlayer.team)+'</div>';document.getElementById('predictionResult').innerHTML='';document.getElementById('predictResults').innerHTML='<div class="notice">Odabran igrač: '+esc(selectedPredictPlayer.name)+'</div>';}function searchPredictPlayers(){clearTimeout(predictTimer);const q=document.getElementById('predictSearch').value.trim(),box=document.getElementById('predictResults');if(q.length<2){box.textContent='Upiši najmanje 2 slova.';return}box.textContent='Tražim…';predictTimer=setTimeout(async()=>{try{const url='https://site.web.api.espn.com/apis/search/v2?region=us&lang=en&query='+encodeURIComponent(q)+'&limit=30';const r=await fetchTimeout(url);if(!r.ok)throw Error('search');const d=await r.json(),found=[],seen=new Set();function scan(x){if(!x||typeof x!=='object')return;if(Array.isArray(x)){x.forEach(scan);return}const name=x.displayName||x.fullName||x.name,id=x.id||(x.uid&&String(x.uid).split(':').pop()),href=String(x.links?.web?.href||x.links?.athlete?.href||x.href||''),type=String(x.type||x.contentType||x.category||'').toLowerCase();if(name&&id&&(type.includes('athlete')||type.includes('player')||href.includes('/athletes/')||x.team||x.position||x.sport?.slug==='basketball')&&!seen.has(String(id))){seen.add(String(id));found.push({id:String(id),name:String(name),team:x.team?.displayName||x.team?.name||x.subtitle||'NBA igrač',teamId:x.team?.id||''})}Object.values(x).forEach(v=>{if(v&&typeof v==='object')scan(v)})}scan(d);const a=found.filter(x=>x.name.toLowerCase().includes(q.toLowerCase())||q.toLowerCase().split(/\\s+/).some(w=>x.name.toLowerCase().includes(w))).slice(0,12);if(!a.length){box.textContent='ESPN nije pronašao igrača. Pokušaj puno ime i prezime.';return}box.innerHTML=a.map(x=>'<button type="button" class="player-choice" data-id="'+esc(x.id)+'" data-name="'+esc(x.name)+'" data-team="'+esc(x.team)+'" data-teamid="'+esc(x.teamId)+'" onclick="selectPredictPlayer(this)">'+esc(x.name)+'<small>'+esc(x.team)+'</small></button>').join('')}catch(e){box.textContent='Pretraživanje igrača trenutačno nije dostupno. Pokušaj ponovno.'}},400)}
 function numericStat(data,regex){let result=null;function walk(x){if(!x||typeof x!=='object'||result!==null)return;if(Array.isArray(x)){x.forEach(walk);return}const key=String(x.name||x.abbreviation||x.shortDisplayName||x.displayName||'').replace(/[ _-]/g,'');const val=x.displayValue??x.value??x.display;if(regex.test(key)&&val!==undefined&&val!==null){const n=Number(String(val).replace('%',''));if(Number.isFinite(n))result=n}Object.values(x).forEach(v=>{if(v&&typeof v==='object')walk(v)})}walk(data);return result}
+function buildPremierPlayerProfile(data){
+ const fga=numericStat(data,/^(fga|fieldgoalsattempted|fieldgoalattemptspergame|fieldgoalsattemptedpergame)$/i);
+ const three=numericStat(data,/^(3pa|threepointfieldgoalsattempted|threepointfieldgoalattemptspergame|threepointfieldgoalsattemptedpergame)$/i);
+ const usage=numericStat(data,/^(usg|usagerate|usagepercentage|usagepercent)$/i);
+ const ast=numericStat(data,/^(ast|assistspergame|assistpergame)$/i);
+ const rate=fga>0&&Number.isFinite(three)?three/fga:null;
+ let role='Rotacijski igrač';
+ if(Number.isFinite(usage)&&usage>=27)role='Glavni kreator / prva napadačka opcija';
+ else if(Number.isFinite(usage)&&usage>=23)role='Primarni strijelac / kreator';
+ else if(Number.isFinite(ast)&&ast>=4)role='Kreator igre / razigravač';
+ else if(Number.isFinite(rate)&&rate>=.42)role='Šuter bez lopte / spot-up';
+ else if(Number.isFinite(fga)&&fga>=12)role='Sekundarni strijelac';
+ else if(Number.isFinite(fga)&&fga>0&&fga<8)role='Dopunska napadačka uloga';
+ return {fga,three,usage,ast,threeRate:rate,role};
+}
+function premierProfileText(profile){
+ if(!profile)return 'Uloga i volumen šuta: podaci nisu dostupni';
+ const parts=[profile.role];
+ if(Number.isFinite(profile.fga))parts.push(profile.fga.toFixed(1)+' šuteva po utakmici');
+ if(Number.isFinite(profile.three))parts.push(profile.three.toFixed(1)+' pokušaja za 3');
+ if(Number.isFinite(profile.usage))parts.push('usage '+profile.usage.toFixed(1)+'%');
+ if(Number.isFinite(profile.ast))parts.push(profile.ast.toFixed(1)+' asistencija');
+ return parts.join(' · ');
+}
 function collectRecentPoints(data){const values=[];function walk(x){if(!x||typeof x!=='object')return;if(Array.isArray(x)){x.forEach(walk);return}if(Array.isArray(x.stats)&&x.stats.length){const labels=x.labels||x.names||[];const idx=labels.findIndex(z=>/^(pts|points)$/i.test(String(z)));if(idx>=0){const n=Number(x.stats[idx]);if(Number.isFinite(n))values.push(n)}}if(Array.isArray(x.statistics)&&x.statistics.length){const p=x.statistics.find(z=>/^(pts|points)$/i.test(String(z.name||z.abbreviation)));if(p){const n=Number(p.displayValue??p.value);if(Number.isFinite(n))values.push(n)}}Object.values(x).forEach(v=>{if(v&&typeof v==='object')walk(v)})}walk(data);return values.slice(0,5)}
 async function getPlayerStats(id){const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);const u=COMMON+'/athletes/'+encodeURIComponent(id)+'/stats?region=us&lang=en&contentorigin=espn&season='+season+'&seasontype=2';const r=await fetchTimeout(u);if(!r.ok)throw Error('player stats');return {data:await r.json(),season}}
 async function getRecentGames(id,season){const r=await fetchTimeout(COMMON+'/athletes/'+encodeURIComponent(id)+'/gamelog?region=us&lang=en&contentorigin=espn&season='+season+'&seasontype=2');if(!r.ok)throw Error('ESPN gamelog HTTP '+r.status);return r.json()}
@@ -734,9 +758,9 @@ function clampModel(v,lo,hi){return Math.max(lo,Math.min(hi,v))}
 async function premierOneProjection(p){
  const injury=findInjuryForPlayer(p.full);
  const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);
- let matchup=null,athlete=null,log=null,vals=[],mins=[],estimate=null,projectionSource='';
+ let matchup=null,athlete=null,log=null,playerProfile=null,vals=[],mins=[],estimate=null,projectionSource='';
  try{matchup=await premierGetMatchup(p)}catch(e){}
- try{athlete=await resolvePremierPlayer(p.full);log=await getRecentGames(athlete.id,season);vals=extractRecentMetric(log,'points');mins=extractRecentMetric(log,'minutes')}catch(e){}
+ try{athlete=await resolvePremierPlayer(p.full);const loaded=await Promise.all([getRecentGames(athlete.id,season),getPlayerStats(athlete.id)]);log=loaded[0];playerProfile=buildPremierPlayerProfile(loaded[1].data);vals=extractRecentMetric(log,'points');mins=extractRecentMetric(log,'minutes')}catch(e){}
  if(vals.length<3||mins.length<3){
   // Rezervna procjena kao ranije: javna projekcija DARKO / Drop Coverage / matchup snapshot.
   let fallback=null,source='';
@@ -803,7 +827,8 @@ async function premierOneProjection(p){
  const opponentName=matchup?.opp?.name||(slate?({CHA:'Charlotte Hornets',ATL:'Atlanta Hawks',BKN:'Brooklyn Nets',ORL:'Orlando Magic',IND:'Indiana Pacers',CLE:'Cleveland Cavaliers'}[slate[4]]||slate[4]):'');
  savePremierHistory(p,rounded,athlete?.id||'');
  premierRenderProjection(p,rounded,sd,expectedMinutes,injury,n,recentPts,opponentName);
- premierSetStatus(p.id,(athlete?.name||p.full)+(opponentName?' · protiv '+opponentName:' · matchup nije potvrđen')+' · '+projectionSource+' · '+n+' zadnjih utakmica'+(questionable.length?' · '+questionable.length+' upitnih':'')+(injury?' · '+injury.status:''));
+ const defenseLabel=Number.isFinite(oppContext.defensiveRating)?(oppContext.defensiveRating<110?'jaka obrana':oppContext.defensiveRating>118?'slaba obrana':'prosječna obrana'):'obrambena snaga nije potvrđena';
+ premierSetStatus(p.id,(athlete?.name||p.full)+' · '+premierProfileText(playerProfile)+(opponentName?' · protiv '+opponentName:' · matchup nije potvrđen')+' · '+defenseLabel+' · '+projectionSource+' · '+n+' zadnjih utakmica'+(questionable.length?' · '+questionable.length+' upitnih':'')+(injury?' · '+injury.status:''));
  return {projection:rounded,sd,athlete,injury,source:projectionSource,opponent:matchup?.opp?.name||''};
 }
 async function calculatePremierPredictions(){

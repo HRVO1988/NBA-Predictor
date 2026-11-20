@@ -483,7 +483,7 @@ async function refreshPredictionHistory(){
     }
     collect(data,labels);
     const wanted=String(pick.date).replace(/-/g,'');
-    const row=events.find(x=>String(x.date).replace(/\D/g,'').slice(0,8)===wanted&&Number.isFinite(x.value));
+    const row=events.find(x=>{const d=String(x.date).replace(/\D/g,'').slice(0,8);if(!Number.isFinite(x.value)||d.length!==8)return false;const a=new Date(Date.UTC(+d.slice(0,4),+d.slice(4,6)-1,+d.slice(6,8))),b=new Date(Date.UTC(+wanted.slice(0,4),+wanted.slice(4,6)-1,+wanted.slice(6,8)));return Math.abs((a-b)/86400000)<=1;});
     if(row){
      pick.actual=row.value;
      pick.status=pick.choice==='OVER'?(row.value>pick.line?'WON':'LOST'):pick.choice==='UNDER'?(row.value<pick.line?'WON':'LOST'):'NO_EDGE';
@@ -708,7 +708,26 @@ async function premierOneProjection(p){
  let matchup=null,athlete=null,log=null,vals=[],mins=[],estimate=null,projectionSource='';
  try{matchup=await premierGetMatchup(p)}catch(e){}
  try{athlete=await resolvePremierPlayer(p.full);log=await getRecentGames(athlete.id,season);vals=extractRecentMetric(log,'points');mins=extractRecentMetric(log,'minutes')}catch(e){}
- if(vals.length<3||mins.length<3)throw Error('ESPN još nije vratio najmanje tri nedavne utakmice s poenima i minutama. Pokušaj ponovno nakon osvježavanja podataka.');
+ if(vals.length<3||mins.length<3){
+  // Rezervna procjena kao ranije: javna projekcija DARKO / Drop Coverage / matchup snapshot.
+  let fallback=null,source='';
+  try{
+   const rows=await loadDropCoverageRows(),row=matchDropCoveragePts(rows,p.full);
+   if(row){fallback=Number(row.proj);source='Drop Coverage PTS projekcija';}
+  }catch(e){}
+  if(!(Number.isFinite(fallback)&&fallback>0)&&Number.isFinite(DARKO_PTS_20261117[p.full])){
+   fallback=DARKO_PTS_20261117[p.full];source='DARKO Fantasy Lab · 17.11.2026';
+  }
+  if(!(Number.isFinite(fallback)&&fallback>0)&&Number.isFinite(PREMIER_MATCHUP_PTS[p.full])){
+   fallback=PREMIER_MATCHUP_PTS[p.full];source='projekcija matchup snapshot · 19.11.2026';
+  }
+  if(!(Number.isFinite(fallback)&&fallback>0))throw Error('Nema dovoljno recentnih utakmica ni javne rezervne projekcije za ovog igrača.');
+  const fallbackSd=Math.max(2.5,fallback*.22),fallbackMinutes=30;
+  savePremierHistory(p,Math.round(fallback),athlete?.id||'');
+  premierRenderProjection(p,Math.round(fallback),fallbackSd,fallbackMinutes,injury,0,[],matchup?.opp?.name||'');
+  premierSetStatus(p.id,source+' · rezervna javna projekcija'+(matchup?.opp?.name?' · protiv '+matchup.opp.name:' · matchup nije potvrđen'));
+  return {projection:Math.round(fallback),sd:fallbackSd,athlete,injury,source,opponent:matchup?.opp?.name||''};
+ }
  const n=Math.min(vals.length,mins.length,10),recentPts=vals.slice(0,n),recentMins=mins.slice(0,n);
  const weighted=(a)=>{let sum=0,w=0;for(let i=0;i<a.length;i++){const weight=i<5?1.35:0.8;sum+=a[i]*weight;w+=weight}return sum/w};
  const rate=weighted(recentPts.map((v,i)=>v/Math.max(1,recentMins[i])));

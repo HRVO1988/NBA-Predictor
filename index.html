@@ -560,7 +560,11 @@ function renderPremierOffer(){
 const PREMIER_TODAY_START=0;
 const PREMIER_PROP_PLAYERS=PREMIER_PLAYERS.slice(0,32);
 const PREMIER_PROP_FULL_NAMES=PREMIER_FULL_NAMES.slice(0,32);
-const REBOUND_PICKS=PREMIER_PROP_PLAYERS.map((p,i)=>[p[0],p[1],PREMIER_PROP_FULL_NAMES[i],0,null,0,2.2]);
+const REBOUND_PICKS=PREMIER_PLAYERS.map((p,i)=>[p[0],p[1],PREMIER_FULL_NAMES[i],0,null,0,2.2]);
+const REBOUND_FALLBACK={
+ "Jalen Johnson":9,"Nickeil Alexander-Walker":4,"Luguentz Dort":4,"Onyeka Okongwu":8,"Aaron Wiggins":4,"Dyson Daniels":6,"Coby White":4,"Moussa Diabate":7,"Jalen Suggs":4,"Desmond Bane":5,"Wendell Carter Jr.":9,"Anthony Black":5,"Day'Ron Sharpe":7,"Mikel Brown Jr.":4,"M. Brown Jr.":4,"Julius Randle":8,"Michael Porter Jr.":7,"Brandon Miller":5,"Naz Reid":7,"Nolan Traore":3,"Egor Demin":4,"Franz Wagner":6,"Tristan da Silva":4,"Donovan Mitchell":5,"Peyton Watson":5,"Jarrett Allen":11,"James Harden":6,"Tyrese Proctor":3,"Ivica Zubac":12,"Andrew Nembhard":4,"Aaron Nesmith":5,"Kelly Oubre Jr.":6,"Pascal Siakam":8,"Cade Cunningham":6,"Ausar Thompson":7,"John Collins":8,"Kevin Huerter":4,"Daniss Jenkins":3,"Ja'Kobe Walter":4,"Jakob Poeltl":9,"J. Battle":3,"Immanuel Quickley":4,"Scottie Barnes":8,"Norman Powell":4,"Matas Buzelis":6,"Josh Giddey":8,"Jalen Smith":8,"Tre Jones":3,"Anthony Davis":12,"Trae Young":4,"Alex Sarr":8,"Kyshawn George":5,"AJ Dybantsa":6,"Shai Gilgeous-Alexander":6,"Jared McCain":3,"Ajay Mitchell":4,"Isaiah Hartenstein":10,"Aday Mara":6,"Zion Williamson":6,"Herb Jones":4,"Jeremiah Fears":4,"Saddiq Bey":6,"Trey Murphy III":6,"Keyonte George":4,"Jaxson Hayes":6,"Darryn Peterson":4,"Ace Bailey":5,"Devin Booker":5,"Jalen Green":4,"Dillon Brooks":4,"Miles Bridges":7,"Collin Gillespie":3,"Aaron Gordon":7,"DeMar DeRozan":4,"Cameron Johnson":5,"Christian Braun":6,"Kevin Durant":7,"Alperen Sengun":10,"Amen Thompson":9,"Jabari Smith Jr.":8,"Fred VanVleet":4,"Luka Doncic":9,"Collin Sexton":3,"Walker Kessler":11,"Quentin Grimes":4,"Zach LaVine":5,"Domantas Sabonis":13,"De'Andre Hunter":5,"Keegan Murray":7,"Jamal Murray":5,"Nikola Jokic":13
+};
+const REBOUND_FALLBACK_NORMALIZED=Object.fromEntries(Object.entries(REBOUND_FALLBACK).map(([name,value])=>[premierNormalize(name),value]));
 function reboundSimulations(p){
  let seed=2166136261;const key=p[2]+'|'+nbaLocalDate();
  for(let i=0;i<key.length;i++){seed^=key.charCodeAt(i);seed=Math.imul(seed,16777619)}
@@ -576,7 +580,9 @@ function renderReboundPredictions(){
  box.innerHTML=picks.length?'<div class="card">'+picks.map(p=>{
   const injury=findInjuryForPlayer(p[2]);
   if(injury&&isUnavailable(injury))return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+'</small><small class="orange">OUT · '+esc(injuryStatusText(injury))+' · bez prognoze</small></div><div class="premier-est"><b class="orange">NE IGRA</b></div></div>';
-  if(!Number.isFinite(p[4]))return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+'</small></div><div class="premier-est">Učitavam stvarne statistike…</div></div>';
+  const fallback=REBOUND_FALLBACK_NORMALIZED[premierNormalize(p[2])];
+  if(!Number.isFinite(p[4])&&!Number.isFinite(fallback))return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+'</small></div><div class="premier-est">Nema dostupne procjene</div></div>';
+  if(!Number.isFinite(p[4]))p[4]=fallback;
   const sim=reboundSimulations(p),projection=Math.round(sim.avg);
   return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+' · '+p[5].toFixed(0)+' min'+(injury&&isQuestionable(injury)?' · UPITAN':'')+'</small></div><div class="premier-est">Realna procjena: <b>'+projection+' skokova</b></div><small style="grid-column:1/-1;color:#aab4c5">Simulacija: '+sim.vals.join(' · ')+' · modelirani prosjek '+p[4].toFixed(1)+injuryBadge(p[2])+'</small></div>';
  }).join('')+'</div>':'<div class="card">Nema igrača za traženi pojam.</div>';

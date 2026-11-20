@@ -1102,7 +1102,7 @@ async function premierOneProjection(p){
  const expectedMinutes=clampModel(weighted(recentMins),Math.max(8,Math.min(...recentMins)-4),Math.min(42,Math.max(...recentMins)+3));
  estimate=rate*expectedMinutes;
  const roleShot=premierRoleShotFactor(playerProfile); estimate*=roleShot.factor;
- const slateOpponent=slate?({CHA:'Charlotte Hornets',ATL:'Atlanta Hawks',BKN:'Brooklyn Nets',ORL:'Orlando Magic',IND:'Indiana Pacers',CLE:'Cleveland Cavaliers'}[slate[4]]||slate[4]):''; const position=premierPlayerPosition(p,athlete,playerProfile,log); const defenseByPosition=premierPositionDefenseAdjustment(position,matchup?.opp||slateOpponent);
+ const slateForDefense=premierSlateSnapshot(p.full); const slateOpponent=slateForDefense?({CHA:'Charlotte Hornets',ATL:'Atlanta Hawks',BKN:'Brooklyn Nets',ORL:'Orlando Magic',IND:'Indiana Pacers',CLE:'Cleveland Cavaliers'}[slateForDefense[4]]||slateForDefense[4]):''; const position=premierPlayerPosition(p,athlete,playerProfile,log); const defenseByPosition=premierPositionDefenseAdjustment(position,matchup?.opp||slateOpponent);
  estimate*=defenseByPosition.factor;
  projectionSource='recentna produkcija po minuti i očekivana minutaža · '+roleShot.detail+' · '+(position||'pozicija nije pronađena')+' · '+defenseByPosition.label;
  let ownContext={},oppContext={};

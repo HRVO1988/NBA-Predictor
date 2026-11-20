@@ -459,7 +459,7 @@ async function refreshAllPlayerPropEstimates(){
  await Promise.all(PREMIER_PROP_PLAYERS.map(async(p,j)=>{
   const i=j+PREMIER_TODAY_START,full=PREMIER_PROP_FULL_NAMES[j];
   try{
-   const [athlete,matchup]=await Promise.all([resolvePremierPlayer(full),premierGetMatchup({full,name:p[0],team:p[1]})]);
+   const athlete=await resolvePremierPlayer(full);let matchup=null;try{matchup=await premierGetMatchup({full,name:p[0],team:p[1]})}catch(e){}
    const log=await getRecentGames(athlete.id,season);
    const reb=extractRecentMetric(log,'rebounds'),ast=extractRecentMetric(log,'assists'),mins=extractRecentMetric(log,'minutes');
    const n=Math.min(reb.length,ast.length,mins.length,10);

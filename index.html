@@ -1105,8 +1105,10 @@ async function premierOneProjection(p){
   if(!(Number.isFinite(fallback)&&fallback>0))throw Error('Nema dostupne statističke osnove za poštenu procjenu; Premierova granica se ne koristi kao prognoza.');
   const snapshot=premierSlateSnapshot(p.full);
   const opponent=matchup?.opp?.name||(snapshot?({CHA:'Charlotte Hornets',ATL:'Atlanta Hawks',BKN:'Brooklyn Nets',ORL:'Orlando Magic',IND:'Indiana Pacers',CLE:'Cleveland Cavaliers'}[snapshot[4]]||snapshot[4]):'');
-  const roleShot=premierRoleShotFactor(playerProfile); const position=premierPlayerPosition(p,athlete,playerProfile,log); const defenseByPosition=premierPositionDefenseAdjustment(position,matchup?.opp||opponent); const adjusted=fallback*roleShot.factor*defenseByPosition.factor*(injury&&isQuestionable(injury)?0.92:1);
-  const fallbackSd=Math.max(2.5,adjusted*.20),fallbackMinutes=snapshot?snapshot[3]:30;
+  const roleShot=premierRoleShotFactor(playerProfile); const position=premierPlayerPosition(p,athlete,playerProfile,log); const defenseByPosition=premierPositionDefenseAdjustment(position,matchup?.opp||opponent);
+  const fallbackBase=Number.isFinite(playerProfile?.ppg)&&playerProfile.ppg>0?fallback*.55+playerProfile.ppg*.45:fallback;
+  const adjusted=fallbackBase*roleShot.factor*defenseByPosition.factor*(injury&&isQuestionable(injury)?0.92:1);
+  const fallbackSd=Math.max(2.5,adjusted*.20),fallbackMinutes=Number.isFinite(playerProfile?.mpg)&&playerProfile.mpg>=5&&playerProfile.mpg<=45?playerProfile.mpg:(snapshot?snapshot[3]:30);
   savePremierHistory(p,Math.round(adjusted),athlete?.id||'');
   premierRenderProjection(p,Math.round(adjusted),fallbackSd,fallbackMinutes,injury, snapshot?10:0,[],opponent);
   premierSetStatus(p.id,source+' · '+premierProfileText(playerProfile)+' · '+roleShot.detail+' · '+(position||'pozicija nije pronađena')+' · '+defenseByPosition.label+(opponent?' · protiv '+opponent:' · matchup nije potvrđen')+premierProjectionChange(p,Math.round(adjusted)));

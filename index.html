@@ -69,7 +69,7 @@
 <div class="card"><b>🔎 Euroligaški košarkaši</b><p class="muted">Pretraži igrača po imenu i dobit ćeš neovisnu procjenu poena, skokova i asistencija prema zadnjim utakmicama, tempu i protivniku.</p><p class="muted">Igrači iz tvoje ponude — dodirni ime za automatsku procjenu.</p><div id="elOfferRoster"></div>
 <input id="elPlayerSearch" placeholder="Upiši ime košarkaša…" autocomplete="off">
 <div id="elPlayerResults" class="muted">Upiši najmanje 2 slova.</div><div id="elPlayerStats"></div></div>
-<div class="notice">Procjene se računaju iz učinka po minuti u zadnjih 10 utakmica, očekivane minutaže, tempa i obrane protivnika. Sezonski prosjek služi samo kao dodatna informacija, ne kao osnova prognoze. Ako nedostaju recentni podaci, aplikacija neće izmišljati procjenu.</div>
+<div class="notice">Procjene se računaju iz službenog prosjeka po utakmici u aktualnoj sezoni. Ako službeni podaci nisu dostupni, procjena se neće izmišljati. Ako nedostaju recentni podaci, aplikacija neće izmišljati procjenu.</div>
 </section>
 <section id="live" class="section">
 <h2>📡 Stvarni poeni. Nema jamstva dobitka.</footer>
@@ -1161,44 +1161,41 @@ if('serviceWorker' in navigator){window.addEventListener('load',async()=>{try{co
   const keys={points:['pts','points'],rebounds:['reb','rebounds'],assists:['ast','assists'],minutes:['min','minutes','mins']};
   return extractRecentMetric(data,metric);
  }
- async function euroProjection(id,teamId,season){
-  const log=await get(COMMON+'/athletes/'+encodeURIComponent(id)+'/gamelog?season='+season+'&seasontype=2');
-  const vals={points:euroMetric(log,'points'),rebounds:euroMetric(log,'rebounds'),assists:euroMetric(log,'assists'),minutes:euroMetric(log,'minutes')};
-  const n=Math.min(10,vals.minutes.length,vals.points.length,vals.rebounds.length,vals.assists.length);
-  if(n<5)throw Error('Nema najmanje pet nedavnih utakmica s potpunim podacima. Ne koristim sezonske prosjeke.');
-  const weighted=a=>{let sum=0,w=0;for(let i=0;i<n;i++){const k=i<5?1.35:.8;sum+=a[i]*k;w+=k}return sum/w};
-  const mins=weighted(vals.minutes.slice(0,n));
-  const model={};
-  for(const key of ['points','rebounds','assists']){
-   const rate=weighted(vals[key].slice(0,n).map((v,i)=>v/Math.max(1,vals.minutes[i])));
-   model[key]=rate*mins;
+ const EURO_API='https://api-live.euroleague.net';
+ let euroSeasonStatsCache={};
+ function euroNorm(v){return String(v||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'')}
+ async function euroSeasonPlayerStats(season){
+  if(euroSeasonStatsCache[season])return euroSeasonStatsCache[season];
+  const url=EURO_API+'/v3/competitions/E/statistics/players/traditional?SeasonMode=Single&SeasonCode=E'+(season-1)+'&statisticMode=PerGame&limit=500';
+  const d=await get(url);
+  const rows=[];
+  function walk(x){
+   if(!x||typeof x!=='object')return;
+   if(Array.isArray(x)){x.forEach(walk);return}
+   const name=x.player_name||x.playerName||x.name||x.person_name;
+   if(name){
+    const pick=(keys)=>{for(const k of keys){const v=x[k];if(v!==undefined&&v!==null&&v!=='' ){const n=Number(String(v).replace(',','.').replace(/[^0-9.-]/g,''));if(Number.isFinite(n))return n}}return null};
+    const row={name:String(name),minutes:pick(['minutes_played','minutesPlayed','minutes','avg_minutes','avgMinutes']),points:pick(['points_scored','pointsScored','points','avg_points','avgPoints']),rebounds:pick(['total_rebounds','totalRebounds','rebounds','avg_rebounds','avgRebounds']),assists:pick(['assistances','assists','avg_assists','avgAssists'])};
+    if(row.points!==null||row.rebounds!==null||row.assists!==null)rows.push(row);
+   }
+   Object.values(x).forEach(v=>{if(v&&typeof v==='object')walk(v)});
   }
-  let matchup=null,context={},opponent='Nije potvrđen';
-  try{
-   matchup=await euroMatchup(teamId);
-   if(matchup?.opp?.team?.id){
-    opponent=matchup.opp.team.displayName||matchup.opp.team.name||'Protivnik';
-    context=await euroTeamContext(matchup.opp.team.id,season);
-    const ownContext=await euroTeamContext(teamId,season);
-    const paces=[ownContext.pace,context.pace].filter(x=>Number.isFinite(x)&&x>50&&x<110);
-    if(paces.length){
-     const pace=paces.reduce((a,b)=>a+b,0)/paces.length;
-     const factor=clampModel(pace/75,.94,1.06);
-     Object.keys(model).forEach(k=>model[k]*=factor);
-     model.tempo='Tempo utakmice '+pace.toFixed(1);
-    }else model.tempo='Tempo nije dostupan';
-    if(Number.isFinite(context.defensiveRating)&&context.defensiveRating>80&&context.defensiveRating<130){
-     const factor=clampModel(1+(110-context.defensiveRating)/500,.94,1.06);
-     model.points*=factor;model.rebounds*=factor;model.assists*=factor;
-     model.matchup='Obrana protivnika '+context.defensiveRating.toFixed(1);
-    }else if(Number.isFinite(context.pointsAllowed)&&context.pointsAllowed>50&&context.pointsAllowed<120){
-     const factor=clampModel(1+(context.pointsAllowed-80)/500,.94,1.06);
-     model.points*=factor;model.rebounds*=factor;model.assists*=factor;
-     model.matchup='Primljeni poeni protivnika '+context.pointsAllowed.toFixed(1);
-    }else model.matchup='Obrambeni matchup nije dostupan';
-   }else{model.tempo='Tempo nije dostupan';model.matchup='Utakmica danas nije potvrđena'}
-  }catch(e){model.tempo='Tempo nije dostupan';model.matchup='Matchup nije potvrđen'}
-  return {model,mins,n,opponent};
+  walk(d);
+  if(!rows.length)throw Error('Službena statistika Eurolige trenutačno ne vraća podatke za ovu sezonu.');
+  euroSeasonStatsCache[season]=rows;
+  return rows;
+ }
+ async function euroProjection(id,teamId,season,name){
+  const rows=await euroSeasonPlayerStats(season),target=euroNorm(name);
+  let player=rows.find(x=>euroNorm(x.name)===target);
+  if(!player)player=rows.find(x=>{const n=euroNorm(x.name);return n.includes(target)||target.includes(n)});
+  if(!player)throw Error('Igrač nije pronađen u službenoj statistici Eurolige za ovu sezonu. Provjeri ime igrača.');
+  const model={points:player.points,rebounds:player.rebounds,assists:player.assists};
+  if(!Number.isFinite(model.points)||!Number.isFinite(model.rebounds)||!Number.isFinite(model.assists))throw Error('Službeni podaci za ovog igrača nisu potpuni.');
+  const mins=Number.isFinite(player.minutes)?player.minutes:0;
+  model.tempo='Osnova: službeni prosjek Eurolige po utakmici';
+  model.matchup='Protivnik i obrambeni matchup nisu potvrđeni';
+  return {model,mins,n:'sezonski prosjek',opponent:'Nije potvrđen'};
  }
  async function stats(id,name,teamId){
   const out=$('elPlayerStats');out.innerHTML='<div class="card">Analiziram zadnjih 10 utakmica za '+esc(name)+'…</div>';
@@ -1206,14 +1203,14 @@ if('serviceWorker' in navigator){window.addEventListener('load',async()=>{try{co
    const season=new Date().getFullYear()+(new Date().getMonth()>=8?1:0);
    const [d,projection]=await Promise.all([
     get(COMMON+'/athletes/'+encodeURIComponent(id)+'/stats?region=us&lang=en&contentorigin=espn&season='+season+'&seasontype=2').catch(()=>null),
-    euroProjection(id,teamId,season)
+    euroProjection(id,teamId,season,name)
    ]);
    const s=d?read(d):{points:null,rebounds:null,assists:null},m=projection.model;
-   let html='<div class="card"><span class="tag">EUROLIGA · MODEL UTAKMICE</span><h3>'+esc(name)+'</h3><p class="muted">Protivnik: '+esc(projection.opponent)+' · očekivana minutaža: '+projection.mins.toFixed(1)+' · uzorak: '+projection.n+' zadnjih utakmica</p>';
+   let html='<div class="card"><span class="tag">EUROLIGA · MODEL UTAKMICE</span><h3>'+esc(name)+'</h3><p class="muted">Protivnik: '+esc(projection.opponent)+' · očekivana minutaža: '+projection.mins.toFixed(1)+' · osnova: '+projection.n</p>';
    [['Poeni',m.points],['Skokovi',m.rebounds],['Asistencije',m.assists]].forEach(([label,val])=>{
     html+='<div class="stat"><span>'+label+' · procjena aplikacije</span><b class="green">'+Math.max(0,val).toFixed(1)+'</b></div>';
    });
-   html+='<p class="muted">'+esc(m.tempo||'')+' · '+esc(m.matchup||'')+'</p><p class="muted">Model koristi učinak po minuti iz zadnjih 10 nastupa (zadnjih 5 imaju veću težinu), očekivanu minutažu, tempo obje momčadi i obranu protivnika. Sezonski prosjek se ne koristi za izračun. Individualni čuvar nije potvrđen.</p>';
+   html+='<p class="muted">'+esc(m.tempo||'')+' · '+esc(m.matchup||'')+'</p><p class="muted">Procjena koristi službene prosjeke aktualne sezone Eurolige. Protivnik i individualni čuvar nisu potvrđeni.</p>';
    const seasonRows=[['Sezonski PPG',s.points],['Sezonski RPG',s.rebounds],['Sezonski APG',s.assists]];
    html+='<details><summary class="muted">Prikaži sezonske prosjeke samo kao informaciju</summary>';
    seasonRows.forEach(([label,val])=>{html+='<div class="stat"><span>'+label+'</span><b>'+(Number.isFinite(val)?val.toFixed(1):'—')+'</b></div>'});

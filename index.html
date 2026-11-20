@@ -973,7 +973,35 @@ async function premierOneProjection(p){
   if(!(Number.isFinite(fallback)&&fallback>0)&&Number.isFinite(PREMIER_MATCHUP_PTS[p.full])){
    fallback=PREMIER_MATCHUP_PTS[p.full];source='projekcija matchup snapshot · 19.11.2026';
   }
-  if(!(Number.isFinite(fallback)&&fallback>0))throw Error('Nema dovoljno recentnih utakmica ni javne rezervne projekcije za ovog igrača.');
+  // Rezervni izvor 1: aktualni ESPN sezonski prosjek poena ako gamelog nema dovoljno utakmica.
+  if(!(Number.isFinite(fallback)&&fallback>0)&&athlete){
+   try{
+    const seasonStats=await getPlayerStats(athlete.id);
+    let ppg=numericStat(seasonStats.data,/^(avgpoints|pointspergame|ppg|avgpts|ptspergame)$/i);
+    if(!Number.isFinite(ppg)||ppg<=0){
+     const scan=(x)=>{
+      if(!x||typeof x!=='object')return null;
+      if(Array.isArray(x)){for(const v of x){const z=scan(v);if(z!==null)return z;}return null;}
+      const labels=x.names||x.labels||x.abbreviations||x.displayNames||[];
+      const values=x.values||x.displayValues||x.stats||[];
+      if(Array.isArray(labels)&&Array.isArray(values)){
+       const idx=labels.findIndex(v=>/^(pts|points|ppg|avgpoints|pointspergame)$/i.test(String(v).replace(/[^a-z]/gi,'')));
+       if(idx>=0){const n=Number(String(values[idx]?.displayValue??values[idx]?.value??values[idx]).replace(/[^0-9.-]/g,''));if(Number.isFinite(n)&&n>0)return n;}
+      }
+      for(const v of Object.values(x)){if(v&&typeof v==='object'){const z=scan(v);if(z!==null)return z;}}
+      return null;
+     };
+     ppg=scan(seasonStats.data);
+    }
+    if(Number.isFinite(ppg)&&ppg>0){fallback=ppg;source='ESPN aktualni sezonski prosjek poena';}
+   }catch(e){}
+  }
+  // Posljednja rezerva: Premierova granica kao tržišna referenca, ne kao neovisna prognoza.
+  // Tako se ne prikazuje prazno polje, a izvor i niska pouzdanost ostaju jasno označeni.
+  if(!(Number.isFinite(fallback)&&fallback>0)){
+   fallback=Number(p.line);
+   source='tržišna referenca Premier granice · nema neovisne statistike';
+  }
   const snapshot=premierSlateSnapshot(p.full);
   const opponent=matchup?.opp?.name||(snapshot?({CHA:'Charlotte Hornets',ATL:'Atlanta Hawks',BKN:'Brooklyn Nets',ORL:'Orlando Magic',IND:'Indiana Pacers',CLE:'Cleveland Cavaliers'}[snapshot[4]]||snapshot[4]):'');
   const roleShot=premierRoleShotFactor(playerProfile); const adjusted=fallback*roleShot.factor*(injury&&isQuestionable(injury)?0.92:1);

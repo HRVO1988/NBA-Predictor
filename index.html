@@ -1051,9 +1051,23 @@ function premierPositionDefenseAdjustment(position,opponent){
 async function premierOneProjection(p){
  const injury=findInjuryForPlayer(p.full);
  const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);
- let matchup=null,athlete=null,log=null,playerProfile=null,vals=[],mins=[],attempts=[],estimate=null,projectionSource='';
+ let matchup=null,athlete=null,log=null,playerProfile=null,vals=[],mins=[],attempts=[],estimate=null,projectionSource='',usedPreviousSeason=false;
  try{matchup=await premierGetMatchup(p)}catch(e){}
- try{athlete=await resolvePremierPlayer(p.full)}catch(e){} if(athlete){try{log=await getRecentGames(athlete.id,season);vals=extractRecentMetric(log,'points');mins=extractRecentMetric(log,'minutes');attempts=extractRecentMetric(log,'fga')}catch(e){} try{const stats=await getPlayerStats(athlete.id);playerProfile=buildPremierPlayerProfile(stats.data)}catch(e){}}
+ try{athlete=await resolvePremierPlayer(p.full)}catch(e){} if(athlete){
+  try{log=await getRecentGames(athlete.id,season);vals=extractRecentMetric(log,'points');mins=extractRecentMetric(log,'minutes');attempts=extractRecentMetric(log,'fga')}catch(e){}
+  try{const stats=await getPlayerStats(athlete.id);playerProfile=buildPremierPlayerProfile(stats.data)}catch(e){}
+  // Ako tekuća sezona još nema dovoljno utakmica, koristi stvarne utakmice prethodne NBA sezone.
+  if(vals.length<1||mins.length<1){
+   try{
+    const previousLog=await getRecentGames(athlete.id,season-1);
+    const previousPoints=extractRecentMetric(previousLog,'points'),previousMinutes=extractRecentMetric(previousLog,'minutes');
+    if(previousPoints.length>0&&previousMinutes.length>0){
+     log=previousLog;vals=previousPoints;mins=previousMinutes;attempts=extractRecentMetric(previousLog,'fga');
+     usedPreviousSeason=true;
+    }
+   }catch(e){}
+  }
+ }
  if(vals.length<1||mins.length<1){
   // Rezervna procjena kao ranije: javna projekcija DARKO / Drop Coverage / matchup snapshot.
   let fallback=null,source='';
@@ -1104,7 +1118,7 @@ async function premierOneProjection(p){
  const roleShot=premierRoleShotFactor(playerProfile); estimate*=roleShot.factor;
  const slateForDefense=premierSlateSnapshot(p.full); const slateOpponent=slateForDefense?({CHA:'Charlotte Hornets',ATL:'Atlanta Hawks',BKN:'Brooklyn Nets',ORL:'Orlando Magic',IND:'Indiana Pacers',CLE:'Cleveland Cavaliers'}[slateForDefense[4]]||slateForDefense[4]):''; const position=premierPlayerPosition(p,athlete,playerProfile,log); const defenseByPosition=premierPositionDefenseAdjustment(position,matchup?.opp||slateOpponent);
  estimate*=defenseByPosition.factor;
- projectionSource='recentna produkcija po minuti i očekivana minutaža · '+roleShot.detail+' · '+(position||'pozicija nije pronađena')+' · '+defenseByPosition.label;
+ projectionSource=(usedPreviousSeason?'prošlosezonske stvarne utakmice · korekcija za ovu sezonu · ':'recentna produkcija po minuti i očekivana minutaža · ')+roleShot.detail+' · '+(position||'pozicija nije pronađena')+' · '+defenseByPosition.label;
  let ownContext={},oppContext={};
  if(matchup?.own?.id&&matchup?.opp?.id){
   [ownContext,oppContext]=await Promise.all([loadPremierTeamContext(matchup.own.id,season),loadPremierTeamContext(matchup.opp.id,season)]);

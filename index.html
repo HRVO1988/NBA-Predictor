@@ -1045,7 +1045,7 @@ function premierPositionDefenseAdjustment(position,opponent){
  if(!code||!table||!Number.isFinite(table[code]))return {factor:1,label:'HoopsStats matchup nije dostupan'};
  const values=Object.values(table),leagueAverage=values.reduce((a,b)=>a+b,0)/values.length;
  const allowed=table[code],delta=allowed-leagueAverage;
- const factor=clampModel(1+delta*.008,.94,1.06);
+ const factor=clampModel(1+delta*.02,.90,1.10);
  return {factor,label:'HoopsStats '+position+' protiv '+code+': '+allowed.toFixed(1)+' (liga '+leagueAverage.toFixed(1)+', '+(delta>=0?'+':'')+delta.toFixed(1)+' poena)'};
 }
 async function premierOneProjection(p){

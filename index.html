@@ -746,7 +746,7 @@ async function premierOneProjection(p){
   const fallbackSd=Math.max(2.5,adjusted*.20),fallbackMinutes=snapshot?snapshot[3]:30;
   savePremierHistory(p,Math.round(adjusted),athlete?.id||'');
   premierRenderProjection(p,Math.round(adjusted),fallbackSd,fallbackMinutes,injury, snapshot?10:0,[],opponent);
-  premierSetStatus(p.id,source+' · rezervna javna projekcija'+(matchup?.opp?.name?' · protiv '+matchup.opp.name:' · matchup nije potvrđen'));
+  premierSetStatus(p.id,source+(opponent?' · protiv '+opponent:' · matchup nije potvrđen'));
   return {projection:Math.round(adjusted),sd:fallbackSd,athlete,injury,source,opponent};
  }
  const n=Math.min(vals.length,mins.length,10),recentPts=vals.slice(0,n),recentMins=mins.slice(0,n);
@@ -782,10 +782,13 @@ async function premierOneProjection(p){
  const avg=recentPts.reduce((a,b)=>a+b,0)/n;
  const variance=recentPts.reduce((s,v)=>s+(v-avg)**2,0)/n;
  const sd=Math.max(2,Math.sqrt(variance));
+ const slate=premierSlateSnapshot(p.full);
+ if(slate&&Number.isFinite(slate[0])){estimate=estimate*.65+slate[0]*.35;projectionSource+=' · 35% matchup modela (forma/obrana/tempo)';}
  const rounded=Math.max(0,Math.round(estimate));
+ const opponentName=matchup?.opp?.name||(slate?({CHA:'Charlotte Hornets',ATL:'Atlanta Hawks',BKN:'Brooklyn Nets',ORL:'Orlando Magic',IND:'Indiana Pacers',CLE:'Cleveland Cavaliers'}[slate[4]]||slate[4]):'');
  savePremierHistory(p,rounded,athlete?.id||'');
- premierRenderProjection(p,rounded,sd,expectedMinutes,injury,n,recentPts,matchup?.opp?.name||'');
- premierSetStatus(p.id,(athlete?.name||p.full)+(matchup?.opp?.name?' · protiv '+matchup.opp.name:'')+' · '+projectionSource+' · '+n+' zadnjih utakmica'+(questionable.length?' · '+questionable.length+' upitnih':'')+(injury?' · '+injury.status:''));
+ premierRenderProjection(p,rounded,sd,expectedMinutes,injury,n,recentPts,opponentName);
+ premierSetStatus(p.id,(athlete?.name||p.full)+(opponentName?' · protiv '+opponentName:' · matchup nije potvrđen')+' · '+projectionSource+' · '+n+' zadnjih utakmica'+(questionable.length?' · '+questionable.length+' upitnih':'')+(injury?' · '+injury.status:''));
  return {projection:rounded,sd,athlete,injury,source:projectionSource,opponent:matchup?.opp?.name||''};
 }
 async function calculatePremierPredictions(){

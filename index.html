@@ -66,10 +66,10 @@
 <p class="muted">Odvojena Euroliga sekcija. NBA podaci i NBA predikcije ostaju nepromijenjeni.</p>
 <div class="card"><b>📅 Utakmice Eurolige</b><div id="elGames" class="muted">Učitavam raspored…</div></div>
 <div class="card"><b>🏆 Klubovi</b><div id="elTeams"></div></div>
-<div class="card"><b>🔎 Euroligaški košarkaši</b><p class="muted">Pretraži igrača po imenu i dobit ćeš neovisnu procjenu poena, skokova i asistencija prema zadnjim utakmicama, tempu i protivniku.</p><p class="muted">Igrači iz tvoje ponude — dodirni ime za automatsku procjenu.</p><div id="elOfferRoster"></div>
+<div class="card"><b>🔎 Euroligaški košarkaši</b><p class="muted">Pretraži igrača po imenu i dobit ćeš neovisnu procjenu poena, skokova i asistencija prema zadnjim utakmicama, tempu i protivniku.</p><p class="muted">38 igrača iz tvoje ponude — dodirni ime za procjenu poena i postotak prolaza zadane granice.</p><div id="elOfferRoster"></div>
 <input id="elPlayerSearch" placeholder="Upiši ime košarkaša…" autocomplete="off">
 <div id="elPlayerResults" class="muted">Upiši najmanje 2 slova.</div><div id="elPlayerStats"></div></div>
-<div class="notice">Procjene se računaju iz službenog prosjeka po utakmici u aktualnoj sezoni. Ako službeni podaci nisu dostupni, procjena se neće izmišljati. Ako nedostaju recentni podaci, aplikacija neće izmišljati procjenu.</div>
+<div class="notice">Procjene koriste dostupne službene boxscore podatke, nedavne nastupe, minutažu i šut. Postotak prolaza granice je modelirana vjerojatnost, ne garancija.</div>
 </section>
 <section id="live" class="section">
 <h2>📡 Stvarni poeni. Nema jamstva dobitka.</footer>
@@ -1099,7 +1099,7 @@ if('serviceWorker' in navigator){window.addEventListener('load',async()=>{try{co
  $('elTeams').innerHTML=TEAMS.map(t=>'<span class="tag" style="display:inline-block;margin:4px">'+esc(t)+'</span>').join('');
  const EURO_OFFER_PLAYERS=[["D. Šarić","Anadolu Efes",13.5,"Dario Saric"],["J. Lloyd","Anadolu Efes",10.5,"Jordan Loyd"],["M. Strazel","Anadolu Efes",11.5,"Matthew Strazel"],["C. Payne","Anadolu Efes",14.5,"Cameron Payne"],["C. Malcolm","Anadolu Efes",11.5,"Cory Malcolm"],["T. Washington Jr.","ASVEL",8.5,"Tyrone Washington Jr."],["B. Gach","ASVEL",7.5,"Boris Gach"],["J. Crowder","ASVEL",9.5,"Jae Crowder"],["P. Mills","ASVEL",13.5,"Patty Mills"],["T. Waters","ASVEL",8.5,"Tremont Waters"],["H. Besson","ASVEL",8.5,"Hugo Besson"],["T. Ward","Olympiacos",6.5,"T.J. Ward"],["C. Miller-McIntyre","Olympiacos",7.5,"Codi Miller-McIntyre"],["A. Vezenkov","Olympiacos",21.5,"Sasha Vezenkov"],["E. Fournier","Olympiacos",16.5,"Evan Fournier"],["T. Maledon","Real Madrid",14.5,"Theo Maledon"],["T. Luwawu-Cabarrot","Real Madrid",9.5,"Timothe Luwawu-Cabarrot"],["A. Feliz","Real Madrid",10.5,"Andres Feliz"],["W. Tavares","Real Madrid",9.5,"Walter Tavares"],["J. Nebo","Barcelona",7.5,"Josh Nebo"],["T. Martin","Barcelona",11.5,"Tornike Shengelia"],["J. Parra","Barcelona",8.5,"Joel Parra"],["J. Robinson","Barcelona",16.5,"James Robinson"],["D. Brizuela","Barcelona",10.5,"Dario Brizuela"],["T. Carter","Crvena zvezda",11.5,"Tyson Carter"],["Ch. Jones","Crvena zvezda",8.5,"Chandler Jones"],["S. Ojeleye","Crvena zvezda",8.5,"Semi Ojeleye"],["J. Nwora","Crvena zvezda",14.5,"Jordan Nwora"],["C. Koloko","Crvena zvezda",7.5,"Christian Koloko"],["T. Jekiri","Partizan",9.5,"Tonye Jekiri"],["V. Marinković","Partizan",7.5,"VanJa Marinkovic"],["R. Franks","Partizan",8.5,"R.J. Franks"],["L. Stevens","Partizan",9.5,"Lamar Stevens"],["Car. Jones","Partizan",15.5,"Carlik Jones"],["E. Omoruyi","Besiktas",8.5,"Eugene Omoruyi"],["W. Gabriel","Besiktas",7.5,"Wenyen Gabriel"],["S. Wilbekin","Besiktas",11.5,"Scottie Wilbekin"],["L. Walker IV","Besiktas",14.5,"Lonnie Walker IV"]];
  $('elOfferRoster').innerHTML=EURO_OFFER_PLAYERS.map(p=>'<button type="button" class="player-choice" style="display:block;width:100%;text-align:left;margin:6px 0;padding:12px" data-player="'+esc(p[3])+'">'+esc(p[0])+' · '+esc(p[1])+'<small>Granica poena: '+p[2].toFixed(1)+' · dodirni za procjenu P/S/A</small></button>').join('');
- $('elOfferRoster').querySelectorAll('button').forEach(btn=>btn.addEventListener('click',()=>{const q=btn.dataset.player;$('elPlayerSearch').value=q;$('elPlayerStats').innerHTML='<div class="card">Tražim '+esc(q)+' i računam dostupne zadnje utakmice…</div>';$('elPlayerResults').textContent='Tražim igrača…';search(q,true)}));
+ $('elOfferRoster').querySelectorAll('button').forEach(btn=>btn.addEventListener('click',()=>{const q=btn.dataset.player;$('elPlayerSearch').value=q;$('elPlayerResults').textContent='Igrač iz tvoje ponude odabran.';stats(q,q,'');}));
 
  async function loadOfficialClubs(){try{const season='E'+(new Date().getMonth()>=7?new Date().getFullYear():new Date().getFullYear()-1),d=await get('https://api-live.euroleague.net/v2/competitions/E/seasons/'+season+'/clubs'),clubs=Array.isArray(d)?d:(d.data||d.clubs||d.items||[]),names=clubs.map(x=>x.name||x.club_name||x.display_name).filter(Boolean);if(names.length>=15)$('elTeams').innerHTML=names.map(t=>'<span class="tag" style="display:inline-block;margin:4px">'+esc(t)+'</span>').join('')+'<p class="muted">Klubovi učitani iz EuroLeague API-ja · '+esc(season)+'</p>'}catch(e){$('elTeams').innerHTML+='<p class="muted">Službeni popis klubova trenutačno nije dostupan; prikazan je popis klubova sezone.</p>'}}
  async function games(){
@@ -1316,12 +1316,25 @@ if('serviceWorker' in navigator){window.addEventListener('load',async()=>{try{co
    }
   }catch(e){matchupText='Obrambeni matchup nije dostupan'}
   model.tempo='Minutaža procijenjena iz zadnjih nastupa';
-  return {model,mins,n:currentGames.length+' aktualnih + '+previousGames.length+' prošlih',opponent};
+  const offer=EURO_OFFER_PLAYERS.find(x=>euroNorm(x[3])===euroNorm(name)||euroNorm(x[0])===euroNorm(name));
+  let overPct=null,line=null;
+  if(offer&&all.length){
+   line=Number(offer[2]);
+   const vals=all.map(x=>x.points).filter(Number.isFinite),mean=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:model.points;
+   const variance=vals.length>1?vals.reduce((a,b)=>a+(b-mean)**2,0)/(vals.length-1):0;
+   const sigma=Math.max(3.5,Math.min(10,Math.sqrt(variance||Math.max(16,model.points*1.35))));
+   const z=(line+0.5-model.points)/sigma;
+   const t=1/(1+0.2316419*Math.abs(z)),d=0.3989423*Math.exp(-z*z/2);
+   const tail=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));
+   const cdf=z>=0?1-tail:tail;
+   overPct=Math.round(Math.max(1,Math.min(99,(1-cdf)*100)));
+  }
+  return {model,mins,n:currentGames.length+' aktualnih + '+previousGames.length+' prošlih',opponent,overPct,line};
  }
  async function stats(id,name,teamId){
   const out=$('elPlayerStats');out.innerHTML='<div class="card">Učitavam službene sezonske podatke za '+esc(name)+'…</div>';
   try{
-   const season=new Date().getFullYear()+(new Date().getMonth()>=8?1:0);
+   const season=new Date().getFullYear()-(new Date().getMonth()<7?1:0);
    const [d,projection]=await Promise.all([
     get(COMMON+'/athletes/'+encodeURIComponent(id)+'/stats?region=us&lang=en&contentorigin=espn&season='+season+'&seasontype=2').catch(()=>null),
     euroProjection(id,teamId,season,name)
@@ -1331,6 +1344,7 @@ if('serviceWorker' in navigator){window.addEventListener('load',async()=>{try{co
    [['Poeni',m.points],['Skokovi',m.rebounds],['Asistencije',m.assists]].forEach(([label,val])=>{
     html+='<div class="stat"><span>'+label+' · procjena aplikacije</span><b class="green">'+Math.max(0,val).toFixed(1)+'</b></div>';
    });
+   if(projection.overPct!==null)html+='<div class="stat"><span>Vjerojatnost više od '+projection.line.toFixed(1)+' poena</span><b class="green">'+projection.overPct+'%</b></div><p class="muted">Postotak je statistička procjena iz projekcije i raspona zadnjih nastupa, nije jamstvo prolaza.</p>';
    html+='<p class="muted">'+esc(m.tempo||'')+' · '+esc(m.matchup||'')+' · '+esc(m.shotNote||'')+'</p><p class="muted">Procjena kombinira zadnje nastupe iz aktualne i prošle sezone, minute, pokušaje i realizaciju šuta te dostupne podatke o obrani protivnika. Individualni čuvar nije potvrđen.</p>';
    const seasonRows=[['Sezonski PPG',s.points],['Sezonski RPG',s.rebounds],['Sezonski APG',s.assists]];
    html+='<details><summary class="muted">Prikaži sezonske prosjeke samo kao informaciju</summary>';

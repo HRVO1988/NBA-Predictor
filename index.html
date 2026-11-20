@@ -543,11 +543,55 @@ const DARKO_EXTRA_20261117={
  "Stephon Castle":[5.0,6.2],"De'Aaron Fox":[3.8,5.6],"Darius Garland":[2.9,7.3],
  "Devin Vassell":[4.1,2.8]
 };
+// Courtside dnevni matchup snapshot za utakmice 20.11.2026. (ET).
+// PTS/REB/AST/minute projekcije; vrijedi samo za ovaj slate, ne koristi se za buduće datume.
+const PREMIER_SLATE_SNAPSHOT_20261120={
+ "Jalen Johnson":[19.3,9.1,7.4,35,"CHA"],
+ "Nickeil Alexander-Walker":[21.8,3.7,3.2,33,"CHA"],
+ "Luguentz Dort":[8.8,2.9,1.4,23,"CHA"],
+ "Onyeka Okongwu":[16.1,8.2,2.4,32,"CHA"],
+ "Aaron Wiggins":[13.7,3.5,2.6,25,"CHA"],
+ "Dyson Daniels":[9.4,7.9,5.7,31,"CHA"],
+ "Coby White":[13.0,2.0,3.3,20,"ATL"],
+ "Moussa Diabate":[8.5,10.3,2.0,29,"ATL"],
+ "Brandon Miller":[18.2,4.0,2.4,27,"ATL"],
+ "Naz Reid":[18.1,8.5,2.5,31,"ATL"],
+ "Jalen Suggs":[9.1,5.0,4.5,29,"BKN"],
+ "Desmond Bane":[18.1,4.2,2.8,35,"BKN"],
+ "Wendell Carter Jr.":[12.6,8.1,1.2,30,"BKN"],
+ "Anthony Black":[16.5,4.9,5.8,34,"BKN"],
+ "Franz Wagner":[25.0,6.7,8.6,36,"BKN"],
+ "Tristan da Silva":[15.0,3.9,1.7,31,"BKN"],
+ "Day'Ron Sharpe":[8.4,7.0,4.4,23,"ORL"],
+ "Mikel Brown Jr.":[11.4,1.7,3.7,22,"ORL"],
+ "Julius Randle":[18.8,5.0,4.2,30,"ORL"],
+ "Michael Porter Jr.":[19.1,6.5,1.3,32,"ORL"],
+ "Nolan Traore":[14.4,1.8,2.8,23,"ORL"],
+ "Egor Demin":[11.8,2.2,2.7,24,"ORL"],
+ "Donovan Mitchell":[22.3,4.3,4.8,29,"IND"],
+ "Peyton Watson":[10.5,4.5,2.4,26,"IND"],
+ "Jarrett Allen":[14.0,9.6,2.0,27,"IND"],
+ "James Harden":[15.9,4.6,6.2,32,"IND"],
+ "Tyrese Proctor":[12.8,4.2,3.3,25,"IND"],
+ "Ivica Zubac":[10.9,8.7,2.0,25,"CLE"],
+ "Andrew Nembhard":[16.5,2.3,7.8,33,"CLE"],
+ "Aaron Nesmith":[12.2,3.0,2.1,29,"CLE"],
+ "Kelly Oubre Jr.":[12.4,3.4,1.2,26,"CLE"],
+ "Pascal Siakam":[23.0,5.9,3.9,32,"CLE"]
+};
+function premierSlateSnapshot(fullName){
+ if(nbaLocalDate()!=='20261120')return null;
+ return PREMIER_SLATE_SNAPSHOT_20261120[fullName]||null;
+}
 async function premierEstimateExtraStats(p){
+ const slate=premierSlateSnapshot(p.full);
  const darko=DARKO_EXTRA_20261117[p.full];
- if(!darko)throw Error('DARKO trenutno nema javno prikazanu projekciju za ovog igrača.');
- const result={rebounds:darko[0],assists:darko[1],games:0,basis:'DARKO Fantasy Lab · 17.11.2026'};
+ const values=slate?[slate[1],slate[2]]:darko;
+ if(!values)throw Error('Nema projekcije skokova/asistencija za ovaj igrača.');
+ const result={rebounds:values[0],assists:values[1],games:slate?10:0,basis:slate?'Courtside matchup · 20.11.2026 · zadnja forma/tempo/obrana':'DARKO Fantasy Lab · 17.11.2026'};
  premierExtraResults[p.id]=result;
+ if(typeof REBOUND_PICKS!=='undefined'&&REBOUND_PICKS[p.id]){REBOUND_PICKS[p.id][4]=result.rebounds;REBOUND_PICKS[p.id][5]=slate?slate[3]:30;}
+ if(typeof ASSIST_PICKS!=='undefined'&&ASSIST_PICKS[p.id]){ASSIST_PICKS[p.id][4]=result.assists;ASSIST_PICKS[p.id][5]=slate?slate[3]:30;}
  premierRenderExtraStats(p.id,result);
  return result;
 }
@@ -685,6 +729,10 @@ async function premierOneProjection(p){
    const rows=await loadDropCoverageRows(),row=matchDropCoveragePts(rows,p.full);
    if(row){fallback=Number(row.proj);source='Drop Coverage PTS projekcija';}
   }catch(e){}
+  const slate=premierSlateSnapshot(p.full);
+  if(slate&&Number.isFinite(slate[0])&&slate[0]>0){
+   fallback=slate[0];source='Courtside matchup model · 20.11.2026 (forma, minutaža, obrana i tempo)';
+  }
   if(!(Number.isFinite(fallback)&&fallback>0)&&Number.isFinite(DARKO_PTS_20261117[p.full])){
    fallback=DARKO_PTS_20261117[p.full];source='DARKO Fantasy Lab · 17.11.2026';
   }
@@ -692,11 +740,14 @@ async function premierOneProjection(p){
    fallback=PREMIER_MATCHUP_PTS[p.full];source='projekcija matchup snapshot · 19.11.2026';
   }
   if(!(Number.isFinite(fallback)&&fallback>0))throw Error('Nema dovoljno recentnih utakmica ni javne rezervne projekcije za ovog igrača.');
-  const fallbackSd=Math.max(2.5,fallback*.22),fallbackMinutes=30;
-  savePremierHistory(p,Math.round(fallback),athlete?.id||'');
-  premierRenderProjection(p,Math.round(fallback),fallbackSd,fallbackMinutes,injury,0,[],matchup?.opp?.name||'');
+  const snapshot=premierSlateSnapshot(p.full);
+  const opponent=matchup?.opp?.name||(snapshot?({CHA:'Charlotte Hornets',ATL:'Atlanta Hawks',BKN:'Brooklyn Nets',ORL:'Orlando Magic',IND:'Indiana Pacers',CLE:'Cleveland Cavaliers'}[snapshot[4]]||snapshot[4]):'');
+  const adjusted=fallback*(injury&&isQuestionable(injury)?0.92:1);
+  const fallbackSd=Math.max(2.5,adjusted*.20),fallbackMinutes=snapshot?snapshot[3]:30;
+  savePremierHistory(p,Math.round(adjusted),athlete?.id||'');
+  premierRenderProjection(p,Math.round(adjusted),fallbackSd,fallbackMinutes,injury, snapshot?10:0,[],opponent);
   premierSetStatus(p.id,source+' · rezervna javna projekcija'+(matchup?.opp?.name?' · protiv '+matchup.opp.name:' · matchup nije potvrđen'));
-  return {projection:Math.round(fallback),sd:fallbackSd,athlete,injury,source,opponent:matchup?.opp?.name||''};
+  return {projection:Math.round(adjusted),sd:fallbackSd,athlete,injury,source,opponent};
  }
  const n=Math.min(vals.length,mins.length,10),recentPts=vals.slice(0,n),recentMins=mins.slice(0,n);
  const weighted=(a)=>{let sum=0,w=0;for(let i=0;i<a.length;i++){const weight=i<5?1.35:0.8;sum+=a[i]*weight;w+=weight}return sum/w};

@@ -1011,6 +1011,7 @@ async function premierOneProjection(p){
   }
   // Ne pretvaraj Premierovu granicu u lažnu statističku prognozu.
   // Ako nema ni recentne ni sezonske/javne projekcije, igrač ostaje jasno označen bez procjene.
+  if(!(Number.isFinite(fallback)&&fallback>0))throw Error('Nema dostupne statističke osnove za poštenu procjenu; Premierova granica se ne koristi kao prognoza.');
   const snapshot=premierSlateSnapshot(p.full);
   const opponent=matchup?.opp?.name||(snapshot?({CHA:'Charlotte Hornets',ATL:'Atlanta Hawks',BKN:'Brooklyn Nets',ORL:'Orlando Magic',IND:'Indiana Pacers',CLE:'Cleveland Cavaliers'}[snapshot[4]]||snapshot[4]):'');
   const roleShot=premierRoleShotFactor(playerProfile); const adjusted=fallback*roleShot.factor*(injury&&isQuestionable(injury)?0.92:1);

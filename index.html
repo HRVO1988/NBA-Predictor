@@ -361,37 +361,25 @@ function calculateLiveDifference(button){
 }
 
 const PREMIER_PLAYERS=[
-["T. Herro","MIL",20.5],["J. Jaquez Jr.","MIL",13.5],["K. Kuzma","MIL",12.5],["B. Burries","MIL",11.5],["M. Turner","MIL",8.5],
-["D. Lillard","POR",21.5],["D. Avdija","POR",23.5],["J. Holiday","POR",12.5],["T. Camara","POR",12.5],["D. Clingan","POR",12.5],
-["La. Ball","MIN",18.5],["J. McDaniels","MIN",15.5],["J. Kuminga","MIN",13.5],["A. Dosunmu","MIN",16.5],["R. Gobert","MIN",8.5],
-["J. Brunson","NY",26.5],["Mik. Bridges","NY",9.5],["OG Anunoby","NY",14.5],["K. A. Towns","NY",20.5],["J. Hart","NY",7.5],["L. Shamet","NY",8.5],
-["V. Wembanyama","SA",29.5],["S. Castle","SA",17.5],["Kel. Johnson","SA",11.5],["D. Fox","SA",14.5],["D. Vassell","SA",11.5],["J. Champagnie","SA",10.5],
-["D. Garland","LAC",19.5],["R. Hachimura","LAC",12.5],["D. Jones Jr.","LAC",8.5],["B. Lopez","LAC",11.5],
 ["J. Johnson","ATL",20.5],["N. Alexander-Walker","ATL",21.5],["L. Dort","ATL",7.5],["O. Okongwu","ATL",14.5],["Aa. Wiggins","ATL",12.5],["D. Daniels","ATL",9.5],
- ["C. White","CHA",16.5],["M. Diabate","CHA",8.5],
- ["J. Suggs","ORL",12.5],["D. Bane","ORL",19.5],["W. Carter Jr.","ORL",11.5],["A. Black","ORL",15.5],
- ["D. Sharpe","BRO",7.5],["M. Brown Jr.","BRO",10.5],["J. Randle","BRO",18.5],["M. Porter Jr.","BRO",19.5],
- ["B. Miller","CHA",20.5],["N. Reid","CHA",18.5],["N. Traore","BRO",10.5],["E. Demin","BRO",10.5],
- ["F. Wagner","ORL",23.5],["T. Da Silva","ORL",11.5],
- ["Do. Mitchell","CLE",25.5],["P. Watson","CLE",12.5],["J. Allen","CLE",14.5],["J. Harden","CLE",17.5],["T. Proctor","CLE",10.5],
- ["I. Zubac","IND",10.5],["A. Nembhard","IND",14.5],["A. Nesmith","IND",13.5],["K. Oubre Jr.","IND",12.5],["P. Siakam","IND",22.5]
+["C. White","CHA",16.5],["M. Diabate","CHA",8.5],
+["J. Suggs","ORL",12.5],["D. Bane","ORL",19.5],["W. Carter Jr.","ORL",11.5],["A. Black","ORL",15.5],
+["D. Sharpe","BRO",7.5],["M. Brown Jr.","BRO",10.5],["J. Randle","BRO",18.5],["M. Porter Jr.","BRO",19.5],
+["B. Miller","CHA",20.5],["N. Reid","CHA",18.5],["N. Traore","BRO",10.5],["E. Demin","BRO",10.5],
+["F. Wagner","ORL",23.5],["T. Da Silva","ORL",11.5],
+["Do. Mitchell","CLE",25.5],["P. Watson","CLE",12.5],["J. Allen","CLE",14.5],["J. Harden","CLE",17.5],["T. Proctor","CLE",10.5],
+["I. Zubac","IND",10.5],["A. Nembhard","IND",14.5],["A. Nesmith","IND",13.5],["K. Oubre Jr.","IND",12.5],["P. Siakam","IND",22.5]
 ];
 
 const PREMIER_FULL_NAMES=[
-"Tyler Herro","Jaime Jaquez Jr.","Kyle Kuzma","Brayden Burries","Myles Turner",
-"Damian Lillard","Deni Avdija","Jrue Holiday","Toumani Camara","Donovan Clingan",
-"LaMelo Ball","Jaden McDaniels","Jonathan Kuminga","Ayo Dosunmu","Rudy Gobert",
-"Jalen Brunson","Mikal Bridges","OG Anunoby","Karl-Anthony Towns","Josh Hart","Landry Shamet",
-"Victor Wembanyama","Stephon Castle","Keldon Johnson","De'Aaron Fox","Devin Vassell","Julian Champagnie",
-"Darius Garland","Rui Hachimura","Derrick Jones Jr.","Brook Lopez",
 "Jalen Johnson","Nickeil Alexander-Walker","Luguentz Dort","Onyeka Okongwu","Aaron Wiggins","Dyson Daniels",
- "Coby White","Moussa Diabate",
- "Jalen Suggs","Desmond Bane","Wendell Carter Jr.","Anthony Black",
- "Day'Ron Sharpe","M. Brown Jr.","Julius Randle","Michael Porter Jr.",
- "Brandon Miller","Naz Reid","Nolan Traore","Egor Demin",
- "Franz Wagner","Tristan da Silva",
- "Donovan Mitchell","Peyton Watson","Jarrett Allen","James Harden","Tyrese Proctor",
- "Ivica Zubac","Andrew Nembhard","Aaron Nesmith","Kelly Oubre Jr.","Pascal Siakam"
+"Coby White","Moussa Diabate",
+"Jalen Suggs","Desmond Bane","Wendell Carter Jr.","Anthony Black",
+"Day'Ron Sharpe","M. Brown Jr.","Julius Randle","Michael Porter Jr.",
+"Brandon Miller","Naz Reid","Nolan Traore","Egor Demin",
+"Franz Wagner","Tristan da Silva",
+"Donovan Mitchell","Peyton Watson","Jarrett Allen","James Harden","Tyrese Proctor",
+"Ivica Zubac","Andrew Nembhard","Aaron Nesmith","Kelly Oubre Jr.","Pascal Siakam"
 ];
 let premierRunning=false;let premierAutoStarted=false;let premierAvailableIds=null;let premierProjectionResults={};let premierStatusResults={};let premierExtraResults={};
 function renderPremierOffer(){

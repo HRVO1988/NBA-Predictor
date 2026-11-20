@@ -606,40 +606,35 @@ renderAssistPredictions();
 
 async function refreshAllPlayerPropEstimates(){
  const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);
- const weighted=(a)=>{let sum=0,w=0;for(let i=0;i<a.length;i++){const weight=i<5?1.35:0.8;sum+=a[i]*weight;w+=weight}return w?sum/w:null};
- const deviation=(values,avg)=>{const a=values.slice(0,10);return a.length?Math.max(0.8,Math.sqrt(a.reduce((sum,v)=>sum+(v-avg)**2,0)/a.length)):1.5};
+ const weighted=a=>{let sum=0,w=0;for(let i=0;i<a.length;i++){const weight=i<5?1.35:0.8;sum+=a[i]*weight;w+=weight}return w?sum/w:null};
+ const deviation=(values,avg)=>{const a=values.slice(0,10);return a.length?Math.max(0.8,Math.sqrt(a.reduce((sum,v)=>(sum+(v-avg)**2),0)/a.length)):1.5};
  await Promise.all(PREMIER_PROP_PLAYERS.map(async(p,j)=>{
   const i=j+PREMIER_TODAY_START,full=PREMIER_PROP_FULL_NAMES[j];
   try{
    const athlete=await resolvePremierPlayer(full);let matchup=null;try{matchup=await premierGetMatchup({full,name:p[0],team:p[1]})}catch(e){}
-   const log=await getRecentGames(athlete.id,season);
-   const reb=extractRecentMetric(log,'rebounds'),ast=extractRecentMetric(log,'assists'),mins=extractRecentMetric(log,'minutes');
-   const n=Math.min(reb.length,ast.length,mins.length,10);
-   if(n<3)throw Error('Manje od 3 utakmice s potpunim podacima');
-   const recentMins=mins.slice(0,n);
-   const expectedMinutes=clampModel(weighted(recentMins),Math.max(8,Math.min(...recentMins)-4),Math.min(42,Math.max(...recentMins)+3));
-   const rate=(rows)=>weighted(rows.slice(0,n).map((x,k)=>x.value/Math.max(1,recentMins[k])));
-   let r=Math.max(0,rate(reb)*expectedMinutes),a=Math.max(0,rate(ast)*expectedMinutes);
-   let ownContext={},oppContext={};
+   const log=await getRecentGames(athlete.id,season),reb=extractRecentMetric(log,'rebounds'),ast=extractRecentMetric(log,'assists'),mins=extractRecentMetric(log,'minutes');
+   const n=Math.min(reb.length,ast.length,mins.length,10);if(n<3)throw Error('Manje od 3 utakmice s potpunim podacima');
+   const recentMins=mins.slice(0,n),expectedMinutes=clampModel(weighted(recentMins),Math.max(8,Math.min(...recentMins)-4),Math.min(42,Math.max(...recentMins)+3));
+   const rate=rows=>weighted(rows.slice(0,n).map((x,k)=>x.value/Math.max(1,recentMins[k])));
+   let r=Math.max(0,rate(reb)*expectedMinutes),a=Math.max(0,rate(ast)*expectedMinutes),ownContext={},oppContext={};
    if(matchup?.own?.id&&matchup?.opp?.id){
     [ownContext,oppContext]=await Promise.all([loadPremierTeamContext(matchup.own.id,season),loadPremierTeamContext(matchup.opp.id,season)]);
     const paces=[ownContext.pace,oppContext.pace].filter(x=>Number.isFinite(x)&&x>70&&x<115);
-    if(paces.length){const paceFactor=clampModel((paces.reduce((x,y)=>x+y,0)/paces.length)/100,.94,1.06);r*=paceFactor;a*=paceFactor;}
-    let defenseFactor=1;
-    if(Number.isFinite(oppContext.defensiveRating)&&oppContext.defensiveRating>90&&oppContext.defensiveRating<130)defenseFactor=clampModel(1+(115-oppContext.defensiveRating)/500,.94,1.06);
-    else if(Number.isFinite(oppContext.pointsAllowed)&&oppContext.pointsAllowed>80&&oppContext.pointsAllowed<150)defenseFactor=clampModel(1+(oppContext.pointsAllowed-115)/500,.94,1.06);
-    r*=defenseFactor;a*=defenseFactor;
+    if(paces.length){const f=clampModel((paces.reduce((x,y)=>x+y,0)/paces.length)/100,.94,1.06);r*=f;a*=f;}
+    if(Number.isFinite(oppContext.reboundsAllowed)&&oppContext.reboundsAllowed>25&&oppContext.reboundsAllowed<65)r*=clampModel(1+(oppContext.reboundsAllowed-44)*.009,.94,1.06);
+    if(Number.isFinite(oppContext.assistsAllowed)&&oppContext.assistsAllowed>10&&oppContext.assistsAllowed<40)a*=clampModel(1+(oppContext.assistsAllowed-25)*.009,.94,1.06);
+    if(Number.isFinite(oppContext.defensiveRating)&&oppContext.defensiveRating>90&&oppContext.defensiveRating<130){r*=clampModel(1+(oppContext.defensiveRating-115)/900,.97,1.03);a*=clampModel(1+(115-oppContext.defensiveRating)/650,.96,1.04);}
    }
-   let profile=null;
-   try{const stats=await getPlayerStats(athlete.id);profile=buildPremierPlayerProfile(stats.data)}catch(e){}
+   let profile=null;try{const stats=await getPlayerStats(athlete.id);profile=buildPremierPlayerProfile(stats.data)}catch(e){}
    if(Number.isFinite(profile?.usage))a*=clampModel(1+(profile.usage-20)*.0025,.96,1.04);
-   const injury=findInjuryForPlayer(full);
-   if(injury&&isQuestionable(injury)){r*=.92;a*=.92;}
-   const rp=REBOUND_PICKS[j],ap=ASSIST_PICKS[j];
-   rp[4]=r;rp[5]=expectedMinutes;rp[6]=deviation(reb.slice(0,n).map(x=>x.value),r);
-   ap[4]=a;ap[5]=expectedMinutes;ap[6]=deviation(ast.slice(0,n).map(x=>x.value),a);
+   let blowoutNote='rizik blowouta nije potvrđen';
+   const ownNet=Number.isFinite(ownContext.offensiveRating)&&Number.isFinite(ownContext.defensiveRating)?ownContext.offensiveRating-ownContext.defensiveRating:null;
+   const oppNet=Number.isFinite(oppContext.offensiveRating)&&Number.isFinite(oppContext.defensiveRating)?oppContext.offensiveRating-oppContext.defensiveRating:null;
+   if(ownNet!==null&&oppNet!==null){const gap=ownNet-oppNet;if(Math.abs(gap)>=8){const risk=clampModel((Math.abs(gap)-8)/30,0,.08),minuteFactor=gap>0?1-risk*.45:1-risk*.85;r*=minuteFactor;a*=minuteFactor;blowoutNote='mogući blowout · korekcija minutaže '+((minuteFactor-1)*100).toFixed(1)+'%';}else blowoutNote='mali signal blowouta po net-ratingu';}
+   const injury=findInjuryForPlayer(full);if(injury&&isQuestionable(injury)){r*=.92;a*=.92;}
+   const rp=REBOUND_PICKS[j],ap=ASSIST_PICKS[j];rp[4]=r;rp[5]=expectedMinutes;rp[6]=deviation(reb.slice(0,n).map(x=>x.value),r);ap[4]=a;ap[5]=expectedMinutes;ap[6]=deviation(ast.slice(0,n).map(x=>x.value),a);
    const opponent=matchup?.opp?.name||'protivnik nije potvrđen';
-   premierExtraResults[i]={rebounds:r,assists:a,games:n,basis:'Nedavnih '+n+' utakmica · učinak po minuti × minutaža · tempo/obrana protivnika'+(Number.isFinite(profile?.usage)?' · usage za asistencije':'')+' · '+opponent};
+   premierExtraResults[i]={rebounds:r,assists:a,games:n,basis:'Zadnjih '+n+' utakmica · učinak po minuti × minutaža ('+expectedMinutes.toFixed(1)+' min) · tempo · skokovi/asistencije koje protivnik dopušta (ako dostupni) · obrana · '+blowoutNote+' · '+opponent};
    premierRenderExtraStats(i,premierExtraResults[i]);
   }catch(e){console.warn('Prop estimate unavailable for '+full,e)}
  }));
@@ -946,7 +941,10 @@ async function loadPremierTeamContext(teamId,season){
   return {
    pace:numericStat(d,/^(pace|possessionspergame|posspergame|teampossessionspergame)$/i),
    pointsAllowed:numericStat(d,/^(opppts|pointsagainst|opponentpointspergame|ptsagainst)$/i),
-   defensiveRating:numericStat(d,/^(defensiverating|defrtg|defensiveefficiency)$/i)
+   defensiveRating:numericStat(d,/^(defensiverating|defrtg|defensiveefficiency)$/i),
+   offensiveRating:numericStat(d,/^(offensiverating|offrtg|offensiveefficiency)$/i),
+   reboundsAllowed:numericStat(d,/^(oppreb|opprebounds|opponentreboundspergame|reboundsallowed)$/i),
+   assistsAllowed:numericStat(d,/^(oppast|oppassists|opponentassistspergame|assistsallowed)$/i)
   };
  }catch(e){return {}}
 }

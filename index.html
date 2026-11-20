@@ -14,7 +14,7 @@
 <title>NBA Predictor</title>
 <style>
 *{box-sizing:border-box}.pick-table{background:#fff;color:#18202b;border-radius:12px;overflow:hidden;margin:12px 0}.pick-head,.pick-row{display:grid;grid-template-columns:minmax(125px,1.7fr) .65fr .8fr .7fr;gap:6px;align-items:center;padding:10px 8px}.pick-head{background:#e9edf1;font-size:11px;font-weight:bold;color:#566170}.pick-row{border-top:1px solid #e8ebef;font-size:13px}.pick-player b{display:block;font-size:13px}.pick-player small{display:block;color:#687386;font-size:10px;margin-top:3px}.pick-projection{color:#187c50;font-size:15px}.pick-line{min-width:0;width:100%;margin:0;padding:8px 4px;background:#f7f8fa;color:#18202b;border:1px solid #ccd3dc;border-radius:6px;font-size:13px}.pick-diff{font-weight:bold;color:#77808c;font-size:12px}.pick-diff.over{color:#17864e}.pick-diff.under{color:#c44747}.pick-diff.even{color:#a16a22}@media(max-width:390px){.pick-head,.pick-row{grid-template-columns:minmax(105px,1.5fr) .55fr .75fr .65fr;gap:4px;padding:9px 5px}.pick-head{font-size:10px}.pick-row{font-size:12px}.pick-player b{font-size:12px}}body{margin:0;background:#10131c;color:#fff;font-family:Arial,sans-serif}header{background:#191f2e;padding:22px 18px;border-bottom:2px solid #e66b25}h1{margin:0;color:#ff873e;font-size:27px}header p{color:#aeb7c9;margin:7px 0 0}main{padding:16px;max-width:760px;margin:auto}nav{display:flex;gap:7px;overflow:auto;margin-bottom:18px}nav button{white-space:nowrap;background:#252d3e;color:white;border:0;border-radius:9px;padding:12px}nav button.active{background:#e66b25}h2{font-size:19px}.card{background:#1c2332;border:1px solid #30394d;border-radius:13px;padding:15px;margin:12px 0}.muted{color:#aab4c5;font-size:13px}.stat{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #30394d}.green{color:#54dc9b}.orange{color:#ff9b55}.section{display:none}.section.active{display:block}.tag{background:#29364b;padding:5px 8px;border-radius:6px;font-size:12px;color:#ffad79}.action{background:#e66b25;color:white;border:0;padding:12px;border-radius:8px;width:100%;font-weight:bold;margin-top:8px}input,select{width:100%;padding:12px;margin:7px 0;background:#111827;color:white;border:1px solid #46516a;border-radius:8px}.notice{padding:12px;background:#292536;border-radius:9px;color:#ffcf9d;font-size:13px}.game-status{color:#ffb27f;font-size:13px}.player-choice{width:100%;text-align:left;background:#252d3e;color:white;border:1px solid #46516a;border-radius:8px;padding:12px;margin:5px 0}.player-choice small{display:block;color:#aab4c5;margin-top:4px}.projection{font-size:34px;color:#54dc9b;font-weight:bold;margin:10px 0}.warning{color:#ffcf9d}footer{text-align:center;color:#788399;font-size:12px;padding:25px}
- .point-scenarios{display:grid;grid-template-columns:1fr 1fr;gap:3px 8px;margin-top:7px;padding-top:6px;border-top:1px solid #46516a;font-size:11px;color:#aab4c5}.point-scenarios>b,.point-scenarios>small{grid-column:1/-1}.point-scenarios>b{color:#8fc9ff;font-size:10px;letter-spacing:.3px}.point-scenarios strong{color:#fff;font-size:13px}.point-scenarios>small{font-size:10px;line-height:1.35} .premier-row{display:grid;grid-template-columns:minmax(0,1.4fr) .45fr .65fr .7fr;gap:8px;align-items:center;padding:10px 8px;border-bottom:1px solid #30394d}.premier-row b{font-size:13px}.premier-row small{display:block;color:#aab4c5;font-size:11px}.premier-est{min-width:0;margin:0;padding:9px 5px}.premier-extra{grid-column:1/-1;color:#aab4c5;font-size:12px;padding:2px 4px 8px;border-top:1px solid #30394d}.premier-extra b{color:#fff;font-size:13px}.premier-signal{font-size:12px;font-weight:bold;text-align:right}.premier-under{color:#ff9b55}.premier-over{color:#54dc9b}.premier-neutral{color:#ffcf9d}@media(max-width:390px){.premier-row{grid-template-columns:minmax(0,1.2fr) .42fr .58fr .62fr;gap:5px;padding:8px 4px}.premier-row b{font-size:12px}} .confidence{display:block;margin-top:4px;font-weight:bold}.confidence.high{color:#54dc9b}.confidence.medium{color:#ffcf9d}.confidence.low{color:#ff9b9b}</style>
+ .point-scenarios{display:grid;grid-template-columns:1fr 1fr;gap:3px 8px;margin-top:7px;padding-top:6px;border-top:1px solid #46516a;font-size:11px;color:#aab4c5}.point-scenarios>b,.point-scenarios>small{grid-column:1/-1}.point-scenarios>b{color:#8fc9ff;font-size:10px;letter-spacing:.3px}.point-scenarios strong{color:#fff;font-size:13px}.point-scenarios>small{font-size:10px;line-height:1.35} .premier-row{display:grid;grid-template-columns:minmax(0,1.4fr) .45fr .65fr .7fr;gap:8px;align-items:center;padding:10px 8px;border-bottom:1px solid #30394d}.premier-row b{font-size:13px}.premier-row small{display:block;color:#aab4c5;font-size:11px}.premier-est{min-width:0;margin:0;padding:9px 5px}.premier-extra{grid-column:1/-1;color:#aab4c5;font-size:12px;padding:2px 4px 8px;border-top:1px solid #30394d}.premier-extra b{color:#fff;font-size:13px}.premier-signal{font-size:12px;font-weight:bold;text-align:right}.premier-under{color:#ff9b55}.premier-over{color:#54dc9b}.premier-neutral{color:#ffcf9d}@media(max-width:390px){.premier-row{grid-template-columns:minmax(0,1.2fr) .42fr .58fr .62fr;gap:5px;padding:8px 4px}.premier-row b{font-size:12px}} .confidence{display:block;margin-top:4px;font-weight:bold}.confidence.high{color:#54dc9b}.confidence.medium{color:#ffcf9d}.confidence.low{color:#ff9b9b}.premier-grade{display:block;font-size:11px;font-weight:bold;margin-top:4px}.grade-win{color:#54dc9b}.grade-loss{color:#ff6b6b}</style>
 </head>
 <body>
 <header><h1 role="button" tabindex="0" aria-label="Osvježi NBA Predictor" title="Dodirni za osvježavanje" style="cursor:pointer;user-select:none" onclick="window.location.reload()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.reload()}">🏀 NBA PREDICTOR</h1><p>Tvoj košarkaški statistički centar</p></header>
@@ -127,10 +127,51 @@ function selectPredictPlayer(btn){selectedPredictPlayer={id:btn.dataset.id,name:
 function numericStat(data,regex){let result=null;function walk(x){if(!x||typeof x!=='object'||result!==null)return;if(Array.isArray(x)){x.forEach(walk);return}const key=String(x.name||x.abbreviation||x.shortDisplayName||x.displayName||'').replace(/[ _-]/g,'');const val=x.displayValue??x.value??x.display;if(regex.test(key)&&val!==undefined&&val!==null){const n=Number(String(val).replace('%',''));if(Number.isFinite(n))result=n}Object.values(x).forEach(v=>{if(v&&typeof v==='object')walk(v)})}walk(data);return result}
 function collectRecentPoints(data){const values=[];function walk(x){if(!x||typeof x!=='object')return;if(Array.isArray(x)){x.forEach(walk);return}if(Array.isArray(x.stats)&&x.stats.length){const labels=x.labels||x.names||[];const idx=labels.findIndex(z=>/^(pts|points)$/i.test(String(z)));if(idx>=0){const n=Number(x.stats[idx]);if(Number.isFinite(n))values.push(n)}}if(Array.isArray(x.statistics)&&x.statistics.length){const p=x.statistics.find(z=>/^(pts|points)$/i.test(String(z.name||z.abbreviation)));if(p){const n=Number(p.displayValue??p.value);if(Number.isFinite(n))values.push(n)}}Object.values(x).forEach(v=>{if(v&&typeof v==='object')walk(v)})}walk(data);return values.slice(0,5)}
 async function getPlayerStats(id){const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);const u=COMMON+'/athletes/'+encodeURIComponent(id)+'/stats?region=us&lang=en&contentorigin=espn&season='+season+'&seasontype=2';const r=await fetchTimeout(u);if(!r.ok)throw Error('player stats');return {data:await r.json(),season}}
-async function getRecentGames(id,season){const r=await fetchTimeout(API+'/athletes/'+encodeURIComponent(id)+'/gamelog?season='+season+'&seasontype=2');if(!r.ok)throw Error('gamelog');return r.json()}
+async function getRecentGames(id,season){const r=await fetchTimeout(COMMON+'/athletes/'+encodeURIComponent(id)+'/gamelog?region=us&lang=en&contentorigin=espn&season='+season+'&seasontype=2');if(!r.ok)throw Error('ESPN gamelog HTTP '+r.status);return r.json()}
 async function getOpponentDefense(teamId,season){if(!teamId)return null;try{const r=await fetchTimeout(API+'/teams/'+encodeURIComponent(teamId)+'/statistics?season='+season);if(!r.ok)return null;const d=await r.json();return numericStat(d,/^(opppts|pointsagainst|opponentpointspergame|ptsagainst)$/i)}catch(e){return null}}
 function injuryStatusText(x){return String(typeof x.status==='object'?JSON.stringify(x.status):x.status||'').toLowerCase()}function isUnavailable(x){return /out|inactive|ruled out|not playing|will not play|sidelined/i.test(injuryStatusText(x))}function isQuestionable(x){return /questionable|doubtful|day.to.day|game.time.decision|probable/i.test(injuryStatusText(x))}function findInjuryForPlayer(name){const wanted=premierNormalize(name);return injuryData.find(x=>premierNormalize(x.name)===wanted)||null}function injuryBadge(name){const injury=findInjuryForPlayer(name);if(!injury)return '';if(isUnavailable(injury))return ' · <b class="orange">OUT · ne igrati</b>';if(isQuestionable(injury))return ' · <b class="warning">'+esc(injuryStatusText(injury).toUpperCase())+'</b>';return ' · <b class="green">'+esc(injuryStatusText(injury).toUpperCase())+'</b>'}async function refreshSharedInjuries(){if(window.__injuryRefreshRunning)return;window.__injuryRefreshRunning=true;try{const r=await fetchTimeout(API+'/injuries',15000);if(!r.ok)throw Error('ESPN injury feed HTTP '+r.status);const data=await r.json(),next=collectInjuries(data);if(!Array.isArray(next))throw Error('Neispravan injury feed');const signature=a=>a.map(x=>premierNormalize(x.name)+'|'+injuryStatusText(x)+'|'+premierNormalize(x.team)).sort().join(';');const changed=signature(injuryData)!==signature(next);injuryData=next;window.__injuryLastUpdated=Date.now();renderPremierOffer();renderReboundPredictions();renderAssistPredictions();if(changed&&premierAutoStarted&&!premierRunning)calculatePremierPredictions();const stamp=document.getElementById('updated');if(stamp)stamp.textContent='Podaci utakmica: '+new Date().toLocaleTimeString('hr-HR')+' · Ozljede provjerene: '+new Date(window.__injuryLastUpdated).toLocaleTimeString('hr-HR')+' · ESPN';}catch(e){console.warn('NBA injury refresh failed',e)}finally{window.__injuryRefreshRunning=false}}function teammateOuts(){if(!selectedPredictPlayer)return [];return injuryData.filter(x=>isUnavailable(x)&&(!x.team||!selectedPredictPlayer.team||x.team.toLowerCase()===selectedPredictPlayer.team.toLowerCase()))}function playerInjury(){if(!selectedPredictPlayer)return null;return injuryData.find(x=>x.name.toLowerCase()===selectedPredictPlayer.name.toLowerCase())||null}
-function extractRecentMetric(data,metric){const keys={points:['pts','points'],rebounds:['reb','rebounds'],assists:['ast','assists'],minutes:['min','minutes','mins']};const vals=[];function add(v){const n=Number(String(v??'').replace(/[^0-9.-]/g,''));if(Number.isFinite(n)&&n>=0)vals.push(n)}function walk(x){if(!x||typeof x!=='object'||vals.length>=10)return;if(Array.isArray(x)){x.forEach(walk);return}const labels=x.labels||x.names||x.abbreviations||[],arr=x.stats||x.values||x.displayValues||x.statistics;if(Array.isArray(labels)&&Array.isArray(arr)){const idx=labels.findIndex(z=>keys[metric].includes(String(z).toLowerCase().replace(/[^a-z]/g,'')));if(idx>=0)add(arr[idx]?.displayValue??arr[idx]?.value??arr[idx])}if(Array.isArray(x.statistics)){const item=x.statistics.find(z=>keys[metric].includes(String(z.name||z.abbreviation||'').toLowerCase().replace(/[^a-z]/g,'')));if(item)add(item.displayValue??item.value)}Object.values(x).forEach(v=>{if(v&&typeof v==='object')walk(v)})}walk(data);return vals.slice(0,10)}
+function extractRecentMetric(data,metric){
+ const keys={points:['pts','points'],rebounds:['reb','rebounds'],assists:['ast','assists'],minutes:['min','minutes','mins']};
+ const wanted=keys[metric]||[];
+ const rows=[];
+ const norm=v=>String(v||'').toLowerCase().replace(/[^a-z]/g,'');
+ function addRow(event,labels){
+  if(!event||typeof event!=='object')return;
+  const stats=event.stats||event.values||event.statistics||[];
+  if(Array.isArray(labels)&&Array.isArray(stats)){
+   const idx=labels.findIndex(v=>wanted.includes(norm(v)));
+   if(idx>=0&&stats[idx]!=null){
+    const raw=stats[idx]?.displayValue??stats[idx]?.value??stats[idx];
+    const n=Number(String(raw??'').replace(/[^0-9.-]/g,''));
+    if(Number.isFinite(n)&&n>=0)rows.push({date:event.date||event.gameDate||event.eventDate||'',value:n});
+   }
+  }else if(Array.isArray(stats)){
+   const item=stats.find(x=>wanted.includes(norm(x?.name||x?.abbreviation||x?.label)));
+   if(item){const n=Number(String(item.value??item.displayValue??'').replace(/[^0-9.-]/g,''));if(Number.isFinite(n)&&n>=0)rows.push({date:event.date||event.gameDate||'',value:n})}
+  }
+ }
+ function walk(x,inheritedLabels){
+  if(!x||typeof x!=='object')return;
+  if(Array.isArray(x)){x.forEach(v=>walk(v,inheritedLabels));return}
+  const labels=x.labels||x.names||x.abbreviations||inheritedLabels;
+  if(Array.isArray(x.events)){
+   x.events.forEach(ev=>addRow(ev,labels));
+  }else if(x.events&&typeof x.events==='object'){
+   Object.values(x.events).forEach(ev=>addRow(ev,labels));
+  }
+  if(Array.isArray(x.stats)&&Array.isArray(labels))addRow(x,labels);
+  if(Array.isArray(x.categories))x.categories.forEach(c=>walk(c,c.labels||labels));
+  if(Array.isArray(x.seasonTypes))x.seasonTypes.forEach(t=>walk(t,labels));
+  for(const [k,v] of Object.entries(x)){
+   if(['events','categories','seasonTypes','stats','labels','names','abbreviations'].includes(k))continue;
+   if(v&&typeof v==='object')walk(v,labels);
+  }
+ }
+ walk(data, data?.labels||data?.names||[]);
+ const seen=new Set(),unique=rows.filter(x=>{const k=x.date+'|'+x.value;if(seen.has(k))return false;seen.add(k);return true});
+ unique.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+ return unique.slice(0,10).map(x=>x.value);
+}
 function erf(x){const sign=x<0?-1:1;x=Math.abs(x);const t=1/(1+.3275911*x);const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-x*x);return sign*y}
 async function makePrediction(){const out=document.getElementById('predictionResult'),op=document.getElementById('opponentSelect').value,market=document.getElementById('predictMarket').value,lineRaw=document.getElementById('premierLine').value,line=lineRaw===''?null:Number(lineRaw);if(!selectedPredictPlayer){out.innerHTML='<div class="card orange">Prvo odaberi igrača.</div>';return}if(!op){out.innerHTML='<div class="card orange">Odaberi protivnika iz današnjih utakmica.</div>';return}if(line!==null&&!Number.isFinite(line)){out.innerHTML='<div class="card orange">Upiši ispravnu Premier marginu.</div>';return}out.innerHTML='<div class="card">Analiziram zadnjih 10 nastupa…</div>';try{const p=await getPlayerStats(selectedPredictPlayer.id),log=await getRecentGames(selectedPredictPlayer.id,p.season),vals=extractRecentMetric(log,market),mins=extractRecentMetric(log,'minutes');const ownInjury=playerInjury(),ownStatus=ownInjury?injuryStatusText(ownInjury):'',unavailable=teammateOuts(),questionable=injuryData.filter(x=>isQuestionable(x)&&(!x.team||!selectedPredictPlayer.team||x.team.toLowerCase()===selectedPredictPlayer.team.toLowerCase()));if(vals.length<3)throw Error('insufficient');const last5=vals.slice(0,5),avg10=vals.reduce((s,v)=>s+v,0)/vals.length,avg5=last5.reduce((s,v)=>s+v,0)/last5.length,formEstimate=avg5*.65+avg10*.35,minLast5=mins.length>=3?mins.slice(0,5).reduce((s,v)=>s+v,0)/Math.min(5,mins.length):null,minLast10=mins.length>=3?mins.reduce((s,v)=>s+v,0)/mins.length:null,minuteFactor=minLast5!==null&&minLast10>0?Math.max(.85,Math.min(1.15,minLast5/minLast10)):1,projected=formEstimate*minuteFactor,sd=Math.sqrt(vals.reduce((s,v)=>s+(v-avg10)**2,0)/vals.length)||1,diff=line===null?null:projected-line,z=line===null?null:(line-projected)/sd,prob=line===null?null:Math.max(1,Math.min(99,Math.round((1-.5*(1+erf(z/Math.sqrt(2))))*100))),oppName=document.getElementById('opponentSelect').selectedOptions[0].text,marketName={points:'poena',rebounds:'skokova',assists:'asistencija'}[market],outs=teammateOuts();if(ownInjury&&isUnavailable(ownInjury))throw Error('player unavailable');out.innerHTML='<div class="card"><span class="tag">MODEL FORME · ZADNJIH '+vals.length+' UTAKMICA</span><h3>'+esc(selectedPredictPlayer.name)+' protiv '+esc(oppName)+'</h3><div class="projection">'+projected.toFixed(1)+' '+marketName+'</div><div class="stat"><span>Prosjek zadnjih '+vals.length+'</span><b>'+avg10.toFixed(1)+'</b></div><div class="stat"><span>Prosjek zadnjih '+last5.length+'</span><b>'+avg5.toFixed(1)+'</b></div><div class="stat"><span>Minutaža zadnjih 5</span><b>'+(minLast5!==null?minLast5.toFixed(1)+' min':'nije dostupna')+'</b></div><div class="stat"><span>Korekcija minutaže</span><b>'+minuteFactor.toFixed(2)+'×</b></div><div class="stat"><span>Odstupanje</span><b>±'+sd.toFixed(1)+'</b></div>'+(line!==null?'<div class="stat"><span>Premier margina</span><b>'+line.toFixed(1)+'</b></div><div class="stat"><span>Razlika procjena − margina</span><b class="'+(diff>=0?'green':'orange')+'">'+(diff>0?'+':'')+diff.toFixed(1)+'</b></div><div class="stat"><span>Model: vjerovatnoća više</span><b>'+prob+'%</b></div><h3 class="'+(diff>=1?'green':diff<=-1?'orange':'warning')+'">'+(diff>=1?'Model naginje VIŠE':diff<=-1?'Model naginje MANJE':'Mala razlika — bez jasne prednosti')+'</h3>':'<p class="muted">Upiši Premier marginu za usporedbu.</p>')+'<p class="muted">Model: 65% zadnjih 5 + 35% zadnjih 10, uz ograničenu korekciju trenda minutaže ako je ESPN dostavi. Protivnička obrana i promjene u ulozi nisu uračunate bez pouzdanih podataka. Vjerovatnoća je gruba aproksimacija, nije garancija.</p><h3>Izostanci</h3>'+(ownInjury?'<p class="'+(isUnavailable(ownInjury)?'orange':'warning')+'">'+esc(selectedPredictPlayer.name)+' — '+esc(ownInjury.status)+'</p>':'<p class="muted">Status odabranog igrača nije pronađen u izvještaju.</p>')+(outs.length?outs.map(x=>'<p class="warning">• IZVAN: '+esc(x.name)+' — '+esc(x.status)+'</p>').join(''):'<p class="muted">Nema potvrđenih suigrača izvan sastava u feedu.</p>')+(questionable.length?'<h3>Upitni za nastup</h3>'+questionable.map(x=>'<p class="warning">• '+esc(x.name)+' — '+esc(x.status)+'</p>').join(''):'')+'<h3>Moguća veća minutaža</h3><p class="muted">Izostanci su označeni iz službenog feeda, ali bez potvrđene rotacije ne dodjeljujem automatski dodatne minute drugom igraču. Usporedi trend minutaže zadnjih 5 utakmica s prethodnih 10.</p></div>'}catch(e){out.innerHTML='<div class="card orange">Nema dovoljno podataka iz zadnjih utakmica za pouzdanu procjenu. Neću zamijeniti nedostajuće podatke sezonskim prosjekom.</div>'}}
 // Daily shortlist based on ESPN season averages and today's active schedule.
@@ -285,8 +326,8 @@ function renderPremierOffer(){
  const box=document.getElementById('premierOfferList');if(!box)return;
  const q=(document.getElementById('premierSearch')?.value||'').trim().toLowerCase();
  const list=PREMIER_PLAYERS.map((p,i)=>({name:p[0],team:p[1],line:p[2],id:i,full:PREMIER_FULL_NAMES[i]})).filter(p=>(p.name+' '+p.team+' '+p.full).toLowerCase().includes(q));
- box.innerHTML='<div class="card">'+list.map(p=>'<div class="premier-row"><div><b>'+esc(p.name)+'</b><small>'+esc(p.team)+' · '+esc(p.full)+' · 1 manje 1,85 / 2 više 1,85</small><small class="premier-status" id="premier-status-'+p.id+'">'+esc(premierStatusResults[p.id]||'')+'</small></div><div class="premier-line">Granica Premier: <b>'+p.line.toFixed(1)+'</b></div><div class="premier-est" id="premier-proj-'+p.id+'">Moja prognoza: —</div><div class="premier-signal premier-neutral" id="premier-signal-'+p.id+'"></div><div class="premier-extra" id="premier-extra-'+p.id+'">Skokovi: — · Asistencije: —</div></div>').join('')+'</div>';
- list.forEach(p=>{const r=premierProjectionResults[p.id];if(r)premierRenderProjection(p,r.projection,r.sd,r.minutes,r.injury,r.gameCount,r.recentValues);const x=premierExtraResults[p.id];if(x)premierRenderExtraStats(p.id,x)});
+ box.innerHTML='<div class="card">'+list.map(p=>'<div class="premier-row"><div><b>'+esc(p.name)+'</b><small>'+esc(p.team)+' · '+esc(p.full)+' · 1 manje 1,85 / 2 više 1,85</small><small class="premier-status" id="premier-status-'+p.id+'">'+esc(premierStatusResults[p.id]||'')+'</small><small class="premier-grade" id="premier-grade-'+p.id+'"></small></div><div class="premier-line">Granica Premier: <b>'+p.line.toFixed(1)+'</b></div><div class="premier-est" id="premier-proj-'+p.id+'">Moja prognoza: —</div><div class="premier-signal premier-neutral" id="premier-signal-'+p.id+'"></div><div class="premier-extra" id="premier-extra-'+p.id+'">Skokovi: — · Asistencije: —</div></div>').join('')+'</div>';
+ list.forEach(p=>{const r=premierProjectionResults[p.id];if(r)premierRenderProjection(p,r.projection,r.sd,r.minutes,r.injury,r.gameCount,r.recentValues);const x=premierExtraResults[p.id];if(x)premierRenderExtraStats(p.id,x)});renderPremierGrades();
 }
 
 const REBOUND_PICKS=[
@@ -410,31 +451,50 @@ function renderPredictionHistory(){
 async function refreshPredictionHistory(){
  const summary=document.getElementById('historySummary');if(summary)summary.textContent='Provjeravam završene utakmice…';
  const items=readPredictionHistory(),pending=items.filter(x=>x.status==='PENDING'&&x.athleteId);
- if(!pending.length){renderPredictionHistory();return}
+ if(!pending.length){renderPredictionHistory();renderPremierGrades();return}
  try{
+  const cache={};
   for(const pick of pending){
-   let events=[];try{const day=await fetchTimeout(API+'/scoreboard?dates='+encodeURIComponent(pick.date)+'&limit=100');if(day.ok)events=(await day.json()).events||[]}catch(e){}
-   const candidates=events.filter(g=>/final|završeno|ended/i.test(String(g.competitions?.[0]?.status?.type?.shortDetail||'')));
-   for(const game of candidates){
-    if(!game.id)continue;
-    try{
-     const r=await fetchTimeout('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event='+encodeURIComponent(game.id),12000);if(!r.ok)continue;
-     const body=await r.json();let actual=null,found=false;
-     function scan(x){if(!x||typeof x!=='object'||found)return;if(Array.isArray(x)){x.forEach(scan);return}
-      const athlete=x.athlete||x.player||{},id=String(athlete.id||x.athleteId||x.playerId||'');
-      if(id&&id===String(pick.athleteId)){
-       const stats=x.stats||x.statistics||x.lines||[];
-       if(Array.isArray(stats)){const row=stats.find(z=>/^(pts|points)$/i.test(String(z.name||z.abbreviation||z.label||'')));if(row){const n=Number(row.value??row.displayValue);if(Number.isFinite(n)){actual=n;found=true;return}}}
-      }
-      Object.values(x).forEach(v=>{if(v&&typeof v==='object')scan(v)});
+   try{
+    const season=Number(String(pick.date).slice(0,4))+(Number(String(pick.date).slice(4,6))>=10?1:0);
+    const key=pick.athleteId+'|'+season;
+    if(!cache[key])cache[key]=await getRecentGames(pick.athleteId,season);
+    const data=cache[key],labels=data.labels||data.names||[],events=[];
+    function collect(x,inherited){
+     if(!x||typeof x!=='object')return;
+     if(Array.isArray(x)){x.forEach(v=>collect(v,inherited));return}
+     const labs=x.labels||x.names||inherited||[];
+     if(Array.isArray(x.events)){
+      x.events.forEach(ev=>{const stats=ev.stats||ev.values||[];const idx=labs.findIndex(v=>['pts','points'].includes(String(v).toLowerCase().replace(/[^a-z]/g,'')));if(idx>=0&&stats[idx]!=null)events.push({date:ev.date||ev.gameDate||ev.eventDate||'',value:Number(String(stats[idx]).replace(/[^0-9.-]/g,''))})});
+     }else if(x.events&&typeof x.events==='object'){
+      Object.values(x.events).forEach(ev=>{const stats=ev.stats||ev.values||[];const idx=labs.findIndex(v=>['pts','points'].includes(String(v).toLowerCase().replace(/[^a-z]/g,'')));if(idx>=0&&stats[idx]!=null)events.push({date:ev.date||ev.gameDate||ev.eventDate||'',value:Number(String(stats[idx]).replace(/[^0-9.-]/g,''))})});
      }
-     scan(body);
-     if(found){pick.actual=actual;pick.status=pick.choice==='OVER'?(actual>pick.line?'WON':'LOST'):pick.choice==='UNDER'?(actual<pick.line?'WON':'LOST'):'NO_EDGE';break}
-    }catch(e){}
-   }
+     if(Array.isArray(x.seasonTypes))x.seasonTypes.forEach(t=>collect(t,labs));
+     if(Array.isArray(x.categories))x.categories.forEach(c=>collect(c,c.labels||labs));
+     for(const [k,v] of Object.entries(x)){if(!['events','seasonTypes','categories','labels','names','stats','values'].includes(k)&&v&&typeof v==='object')collect(v,labs)}
+    }
+    collect(data,labels);
+    const wanted=String(pick.date).replace(/-/g,'');
+    const row=events.find(x=>String(x.date).replace(/\D/g,'').slice(0,8)===wanted&&Number.isFinite(x.value));
+    if(row){
+     pick.actual=row.value;
+     pick.status=pick.choice==='OVER'?(row.value>pick.line?'WON':'LOST'):pick.choice==='UNDER'?(row.value<pick.line?'WON':'LOST'):'NO_EDGE';
+    }
+   }catch(e){}
   }
-  writePredictionHistory(items);renderPredictionHistory();
+  writePredictionHistory(items);renderPredictionHistory();renderPremierGrades();
  }catch(e){if(summary)summary.textContent='Rezultate trenutačno nije moguće provjeriti. Pokušaj ponovno kasnije.'}
+}
+function renderPremierGrades(){
+ const items=readPredictionHistory().slice().reverse();
+ PREMIER_PLAYERS.forEach((p,i)=>{
+  const el=document.getElementById('premier-grade-'+i);if(!el)return;
+  const full=PREMIER_FULL_NAMES[i],pick=items.find(x=>premierNormalize(x.name)===premierNormalize(full)&&Number(x.line)===Number(p[2])&&x.status!=='PENDING');
+  if(!pick){el.textContent='';el.className='premier-grade';return}
+  if(pick.status==='WON'){el.textContent='✓ PROŠAO';el.className='premier-grade grade-win'}
+  else if(pick.status==='LOST'){el.textContent='✕ NIJE PROŠAO';el.className='premier-grade grade-loss'}
+  else{el.textContent='BEZ PREDNOSTI';el.className='premier-grade'}
+ });
 }
 function premierSetStatus(id,msg){premierStatusResults[id]=msg;const el=document.getElementById('premier-status-'+id);if(el)el.textContent=msg}
 function premierPointScenarios(name,projection,sd,recentValues,opponentName){
@@ -640,7 +700,7 @@ async function premierOneProjection(p){
  let matchup=null,athlete=null,log=null,vals=[],mins=[],estimate=null,projectionSource='';
  try{matchup=await premierGetMatchup(p)}catch(e){}
  try{athlete=await resolvePremierPlayer(p.full);log=await getRecentGames(athlete.id,season);vals=extractRecentMetric(log,'points');mins=extractRecentMetric(log,'minutes')}catch(e){}
- if(vals.length<5||mins.length<5)throw Error('Nema najmanje pet recentnih utakmica s poenima i minutama; ne koristim sezonski prosjek ni stare ručne procjene.');
+ if(vals.length<3||mins.length<3)throw Error('ESPN još nije vratio najmanje tri nedavne utakmice s poenima i minutama. Pokušaj ponovno nakon osvježavanja podataka.');
  const n=Math.min(vals.length,mins.length,10),recentPts=vals.slice(0,n),recentMins=mins.slice(0,n);
  const weighted=(a)=>{let sum=0,w=0;for(let i=0;i<a.length;i++){const weight=i<5?1.35:0.8;sum+=a[i]*weight;w+=weight}return sum/w};
  const rate=weighted(recentPts.map((v,i)=>v/Math.max(1,recentMins[i])));
@@ -715,7 +775,7 @@ refreshSharedInjuries();
 setInterval(()=>refreshSharedInjuries(),60*60*1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&(!window.__injuryLastUpdated||Date.now()-window.__injuryLastUpdated>=60*60*1000))refreshSharedInjuries()});
 // Automatski pokreni izračun pri otvaranju aplikacije, bez čekanja na ponovni klik kartice.
-window.addEventListener('load',()=>{if(!premierAutoStarted){premierAutoStarted=true;calculatePremierPredictions()}});
+window.addEventListener('load',()=>{refreshPredictionHistory();if(!premierAutoStarted){premierAutoStarted=true;calculatePremierPredictions()}});
 </script>
 <script>
 if('serviceWorker' in navigator){window.addEventListener('load',async()=>{try{const reg=await navigator.serviceWorker.register('./sw.js');await reg.update()}catch(e){}})}

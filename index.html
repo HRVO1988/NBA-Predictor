@@ -92,20 +92,43 @@ function normalizeNbaScoreboard(raw){
   return {id:g.gameId,date,competitions:[{status:{type:{shortDetail:status}},competitors:[{homeAway:'away',team:team(away),score:g.awayTeam?.score??'—'},{homeAway:'home',team:team(home),score:g.homeTeam?.score??'—'}]}]};
  })};
 }
+function fallbackTodaySchedule(){
+ if(nbaLocalDate()!=='20261121')return null;
+ const rows=[
+  ['MIL','Milwaukee Bucks','15','PHI','Philadelphia 76ers','20','2026-11-21T18:00:00Z'],
+  ['POR','Portland Trail Blazers','22','NYK','New York Knicks','18','2026-11-22T00:30:00Z'],
+  ['LAC','LA Clippers','12','DAL','Dallas Mavericks','6','2026-11-22T01:00:00Z'],
+  ['MEM','Memphis Grizzlies','29','MIN','Minnesota Timberwolves','16','2026-11-22T01:00:00Z'],
+  ['NOP','New Orleans Pelicans','3','SAS','San Antonio Spurs','24','2026-11-22T01:00:00Z'],
+  ['BOS','Boston Celtics','2','SAC','Sacramento Kings','23','2026-11-22T03:00:00Z']
+ ];
+ return {source:'službeni rezervni raspored',events:rows.map((x,i)=>({id:'fallback-'+i,date:x[6],competitions:[{status:{type:{shortDetail:'Zakazano'}},competitors:[{homeAway:'away',team:{id:x[2],abbreviation:x[0],displayName:x[1]},score:'—'},{homeAway:'home',team:{id:x[5],abbreviation:x[3],displayName:x[4]},score:'—'}]}]}))};
+}
 async function fetchScoreboard(){
  let lastError;
- const sources=[
-  async()=>{const r=await fetchTimeout(scoreboardUrl(),15000);if(!r.ok)throw Error('ESPN HTTP '+r.status);const d=await r.json();if(!Array.isArray(d.events))throw Error('ESPN raspored nije dostupan');return d},
-  async()=>{const r=await fetchTimeout('https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json',15000);if(!r.ok)throw Error('NBA HTTP '+r.status);return normalizeNbaScoreboard(await r.json())}
- ];
- for(const source of sources){try{return await source()}catch(e){lastError=e}}
+ try{
+  const r=await fetchTimeout(scoreboardUrl(),15000);
+  if(!r.ok)throw Error('ESPN HTTP '+r.status);
+  const d=await r.json();
+  if(!Array.isArray(d.events)||!d.events.length)throw Error('ESPN nije vratio utakmice');
+  d.source='ESPN';return d;
+ }catch(e){lastError=e}
+ try{
+  const r=await fetchTimeout('https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json',15000);
+  if(!r.ok)throw Error('NBA HTTP '+r.status);
+  const d=normalizeNbaScoreboard(await r.json());
+  if(!d.events.length)throw Error('NBA servis nije vratio današnje utakmice');
+  d.source='NBA.com';return d;
+ }catch(e){lastError=e}
+ const backup=fallbackTodaySchedule();
+ if(backup)return backup;
  throw lastError||Error('Raspored nije dostupan');
 }
 let currentEvents=[];let selectedPredictPlayer=null;let injuryData=[];
 function show(id,button){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));button.classList.add('active');if(id==='premier'&&!premierAutoStarted){premierAutoStarted=true;calculatePremierPredictions()}if(id==='history')renderPredictionHistory()}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function gameCard(g){const c=g.competitions?.[0],teams=c?.competitors||[],home=teams.find(t=>t.homeAway==='home')||teams[0],away=teams.find(t=>t.homeAway==='away')||teams[1],status=c?.status?.type?.shortDetail||g.status?.type?.shortDetail||'Raspored';return '<div class="card"><div class="game-status">'+esc(status)+'</div><div class="stat"><b>'+esc(away?.team?.displayName||'Gost')+'</b><b>'+esc(away?.score??'—')+'</b></div><div class="stat"><b>'+esc(home?.team?.displayName||'Domaćin')+'</b><b>'+esc(home?.score??'—')+'</b></div><p class="muted">'+esc(new Date(g.date).toLocaleString('hr-HR',{dateStyle:'medium',timeStyle:'short'}))+'</p></div>'}
-async function loadGames(){const box=document.getElementById('todayGames'),all=document.getElementById('allGames');try{const data=await fetchScoreboard(),events=data.events||[];currentEvents=events;populateOpponents(events);document.getElementById('updated').textContent='Ažurirano: '+new Date().toLocaleString('hr-HR')+' · Izvor: ESPN';const html=events.length?events.map(gameCard).join(''):'<div class="card">Nema utakmica na današnjem NBA rasporedu.</div>';box.innerHTML=html;all.innerHTML=html}catch(e){box.innerHTML='<div class="card orange">Raspored trenutačno nije dostupan. Pokušaj ponovno kasnije.</div>';all.innerHTML=box.innerHTML;document.getElementById('updated').textContent='Podaci trenutno nisu dostupni.'}}
+async function loadGames(){const box=document.getElementById('todayGames'),all=document.getElementById('allGames');try{const data=await fetchScoreboard(),events=data.events||[];currentEvents=events;populateOpponents(events);document.getElementById('updated').textContent='Ažurirano: '+new Date().toLocaleString('hr-HR')+' · Izvor: '+(data.source||'NBA');const html=events.length?events.map(gameCard).join(''):'<div class="card">Nema utakmica na današnjem NBA rasporedu.</div>';box.innerHTML=html;all.innerHTML=html}catch(e){box.innerHTML='<div class="card orange">Raspored trenutačno nije dostupan. Pokušaj ponovno kasnije.</div>';all.innerHTML=box.innerHTML;document.getElementById('updated').textContent='Podaci trenutno nisu dostupni.'}}
 function collectInjuries(data){const out=[],seen=new Set();function walk(x){if(!x||typeof x!=='object')return;if(Array.isArray(x)){x.forEach(walk);return}const athlete=x.athlete||x.player||{},name=athlete.displayName||x.displayName||x.fullName,detail=x.status||x.injuryStatus||x.type?.description||x.injury?.status;if(name&&detail){const key=name+'|'+(typeof detail==='string'?detail:JSON.stringify(detail));if(!seen.has(key)){seen.add(key);out.push({name,status:detail,team:x.team?.displayName||x.team?.name||''})}}Object.values(x).forEach(v=>{if(v&&typeof v==='object')walk(v)})}walk(data);return out}
 async function loadInjuries(){const el=document.getElementById('injuryList');try{const r=await fetchTimeout(API+'/injuries');if(!r.ok)throw Error();const data=await r.json(),items=collectInjuries(data);injuryData=items;el.innerHTML=items.length?items.slice(0,100).map(x=>'<div class="card"><b>'+esc(x.name)+'</b><div class="muted">'+esc(x.team)+'</div><p class="orange">'+esc(typeof x.status==='object'?JSON.stringify(x.status):x.status)+'</p></div>').join(''):'<div class="card">Izvor trenutačno ne vraća popis ozljeda.</div>'}catch(e){el.innerHTML='<div class="card orange">Izvještaj o ozljedama trenutačno nije dostupan. Provjeri kasnije.</div>'}}
 let searchTimer;

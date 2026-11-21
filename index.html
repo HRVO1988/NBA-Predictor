@@ -875,7 +875,7 @@ function premierPositionDefenseAdjustment(position,opponent){
  const factor=clampModel(1+delta*.015,.94,1.06);
  return {factor,label:'HoopsStats '+position+' protiv '+code+': '+allowed.toFixed(1)+' (liga '+leagueAverage.toFixed(1)+', '+(delta>=0?'+':'')+delta.toFixed(1)+' poena)'};
 }
-async async function premierOneProjection(p){
+async function premierOneProjection(p){
  const injury=findInjuryForPlayer(p.full);
  const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);
  let matchup=null,athlete=null,log=null,playerProfile=null,vals=[],mins=[],attempts=[],estimate=null,projectionSource='',usedPreviousSeason=false;

@@ -776,22 +776,43 @@ async function loadPremierRoster(teamId){
  return premierRosterPromises[teamId];
 }
 async function premierGetOpponentFromSchedule(p){
- const games=await loadPremierTonightGames();
- const code=String(p?.team||'').toUpperCase().replace(/[^A-Z]/g,'');
  const aliases={
   PHI:['PHI','PHILADELPHIA','PHILADELPHIA76ERS'],MIL:['MIL','MILWAUKEE','MILWAUKEEBUCKS'],
-  NY:['NY','NYK','NEWYORK','NEWYORKKNICKS'],POR:['POR','PORTLAND','PORTLANDTRAILBLAZERS'],
-  DAL:['DAL','DALLAS','DALLASMAVERICKS'],MIN:['MIN','MINNESOTA','MINNESOTATIMBERWOLVES'],
-  MEM:['MEM','MEMPHIS','MEMPHISGRIZZLIES'],LAC:['LAC','LACLIPPERS','LOSANGELESCLIPPERS'],
-  BOS:['BOS','BOSTON','BOSTONCELTICS'],NOP:['NOP','NO','NEWORLEANS','NEWORLEANPELICANS'],
-  SAC:['SAC','SACRAMENTO','SACRAMENTOKINGS'],SAS:['SAS','SA','SANANTONIO','SANANTONIOSPURS']
+  NY:['NY','NYK','NEWYORK','NEWYORKKNICKS'],NYK:['NY','NYK','NEWYORK','NEWYORKKNICKS'],
+  POR:['POR','PORTLAND','PORTLANDTRAILBLAZERS'],DAL:['DAL','DALLAS','DALLASMAVERICKS'],
+  MIN:['MIN','MINNESOTA','MINNESOTATIMBERWOLVES'],MEM:['MEM','MEMPHIS','MEMPHISGRIZZLIES'],
+  LAC:['LAC','LACLIPPERS','LOSANGELESCLIPPERS'],BOS:['BOS','BOSTON','BOSTONCELTICS'],
+  NOP:['NOP','NO','NEWORLEANS','NEWORLEANPELICANS'],SAC:['SAC','SACRAMENTO','SACRAMENTOKINGS'],
+  SAS:['SAS','SA','SANANTONIO','SANANTONIOSPURS']
  };
- const wanted=aliases[code]||[code];
+ const slate=[
+  ['MIL','Milwaukee Bucks','PHI','Philadelphia 76ers'],
+  ['POR','Portland Trail Blazers','NYK','New York Knicks'],
+  ['LAC','LA Clippers','DAL','Dallas Mavericks'],
+  ['MEM','Memphis Grizzlies','MIN','Minnesota Timberwolves'],
+  ['NOP','New Orleans Pelicans','SAS','San Antonio Spurs'],
+  ['BOS','Boston Celtics','SAC','Sacramento Kings']
+ ];
+ const raw=String(p?.team||'').toUpperCase().replace(/[^A-Z]/g,'');
+ const wanted=aliases[raw]||[raw];
+ let games=[];
+ try{games=await loadPremierTonightGames()}catch(e){}
  for(const game of games){
-  const own=game.teams.find(t=>wanted.includes(String(t.abbr||'').toUpperCase().replace(/[^A-Z]/g,''))||wanted.includes(String(t.name||'').toUpperCase().replace(/[^A-Z]/g,'')));
-  if(!own)continue;
-  const opp=game.teams.find(t=>t.id!==own.id);
-  if(opp)return {game,own,opp};
+  const teams=game.teams||[];
+  const own=teams.find(t=>wanted.includes(String(t.abbr||'').toUpperCase().replace(/[^A-Z]/g,''))||wanted.includes(String(t.name||'').toUpperCase().replace(/[^A-Z]/g,'')));
+  if(own){
+   const opp=teams.find(t=>t!==own&&t.id!==own.id);
+   if(opp)return {game,own,opp};
+  }
+ }
+ for(const row of slate){
+  const [a,an,b,bn]=row;
+  if([a,b].includes(raw)||wanted.includes(a)||wanted.includes(b)){
+   const ownIsA=a===raw||wanted.includes(a);
+   const own={abbr:ownIsA?a:b,name:ownIsA?an:bn,id:null};
+   const opp={abbr:ownIsA?b:a,name:ownIsA?bn:an,id:null};
+   return {game:{teams:[{abbr:a,name:an,id:null},{abbr:b,name:bn,id:null}],source:'službeni raspored 21.11.2026'},own,opp};
+  }
  }
  return null;
 }

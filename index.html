@@ -420,9 +420,9 @@ function reboundSimulations(p){
  let seed=2166136261;const key=p[2]+'|'+nbaLocalDate();
  for(let i=0;i<key.length;i++){seed^=key.charCodeAt(i);seed=Math.imul(seed,16777619)}
  const rand=()=>{seed+=0x6D2B79F5;let t=seed;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296};
- const vals=[];
- for(let i=0;i<10;i++){const u=Math.max(.0001,rand()),v=rand();const z=Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);vals.push(Math.max(0,Math.round(p[4]+z*p[6])))}
- return {vals,avg:vals.reduce((a,b)=>a+b,0)/10};
+ let sum=0;const count=50000;
+ for(let i=0;i<count;i++){const u=Math.max(.0001,rand()),v=rand();const z=Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);sum+=Math.max(0,Math.round(p[4]+z*p[6]))}
+ return {avg:sum/count,count};
 }
 function renderReboundPredictions(){
  const box=document.getElementById('reboundOfferList');if(!box)return;
@@ -445,9 +445,9 @@ function assistSimulations(p){
  let seed=2166136261;const key=p[2]+'|'+nbaLocalDate();
  for(let i=0;i<key.length;i++){seed^=key.charCodeAt(i);seed=Math.imul(seed,16777619)}
  const rand=()=>{seed+=0x6D2B79F5;let t=seed;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296};
- const vals=[];
- for(let i=0;i<10;i++){const u=Math.max(.0001,rand()),v=rand(),z=Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);vals.push(Math.max(0,Math.round(p[4]+z*p[6])))}
- return {vals,avg:vals.reduce((a,b)=>a+b,0)/10};
+ let sum=0;const count=50000;
+ for(let i=0;i<count;i++){const u=Math.max(.0001,rand()),v=rand();const z=Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);sum+=Math.max(0,Math.round(p[4]+z*p[6]))}
+ return {avg:sum/count,count};
 }
 function renderAssistPredictions(){
  const box=document.getElementById('assistOfferList');if(!box)return;
@@ -571,7 +571,7 @@ function premierPointScenarios(name,projection,sd,recentValues,opponentName,line
  for(let i=0;i<key.length;i++){seed^=key.charCodeAt(i);seed=Math.imul(seed,16777619)}
  const rand=()=>{seed=(seed+0x6D2B79F5)|0;let t=seed;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296};
  const samples=[];
- for(let i=0;i<1900;i++){
+ for(let i=0;i<50000;i++){
   const u=Math.max(.0001,rand()),v=rand(),z=Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
   let value;
   if(values.length>=3){const residual=residuals[Math.floor(rand()*residuals.length)];value=projection+residual*.72+z*spread*.48;}
@@ -597,7 +597,7 @@ function premierRenderProjection(p,projection,sd,minutes,injury,gameCount,recent
  if(injury&&isQuestionable(injury)){confidence='NISKA';confidenceClass='low';confidenceReason='status igrača je upitan';}
  if(injury&&isUnavailable(injury)){confidence='NISKA';confidenceClass='low';confidenceReason='igrač je označen kao nedostupan';}
  premierProjectionResults[p.id].confidence=confidence;
- proj.innerHTML='<b>'+Math.round(projection)+' poena</b><small>procjena za utakmicu protiv '+(opponentName?esc(opponentName):'protivnik nije potvrđen')+' · analiza '+gameCount+' utak. · minutaža '+(Number.isFinite(Number(minutes))?Number(minutes).toFixed(1)+' min':'nije dostupna')+'</small><div class="point-scenarios"><b>SIMULACIJA 1.900 scenarija · '+(opponentName?'MATCHUP: '+esc(opponentName).toUpperCase():'BEZ MATCHUP PODATAKA')+'</b><span>Najrealnije: <strong>'+scenarios.likely+'</strong> poena ('+(scenarios.likelyDiff>0?'+':'')+scenarios.likelyDiff+' prema granici)</span><span>Dobar učinak: <strong>'+scenarios.good+'</strong> poena ('+(scenarios.goodDiff>0?'+':'')+scenarios.goodDiff+')</span><span>Odlična večer: <strong>'+scenarios.excellent+'</strong> poena ('+(scenarios.excellentDiff>0?'+':'')+scenarios.excellentDiff+')</span><span>Gornji scenarij: <strong>'+scenarios.upper+'</strong> poena ('+(scenarios.upperDiff>0?'+':'')+scenarios.upperDiff+')</span><span>Simulacija: <strong>'+scenarios.overPct+'%</strong> iznad · <strong>'+scenarios.underPct+'%</strong> ispod granice</span><small>Razlike su izračunate iz simuliranih rezultata prema Premier granici; nisu unaprijed zadane. '+(scenarios.games?'Temeljeno na '+scenarios.games+' zadnjih utakmica i varijaciji učinka.':'Nema dovoljno utakmica; korišten širi statistički raspon.')+'</small></div><small class="confidence '+confidenceClass+'" title="'+confidenceReason+'">Pouzdanost: '+confidence+'</small>';
+ proj.innerHTML='<b>'+Math.round(projection)+' poena</b><small>procjena za utakmicu protiv '+(opponentName?esc(opponentName):'protivnik nije potvrđen')+' · analiza '+gameCount+' utak. · minutaža '+(Number.isFinite(Number(minutes))?Number(minutes).toFixed(1)+' min':'nije dostupna')+'</small><div class="point-scenarios"><b>SIMULACIJA 50.000 scenarija · '+(opponentName?'MATCHUP: '+esc(opponentName).toUpperCase():'BEZ MATCHUP PODATAKA')+'</b><span>Najrealnije: <strong>'+scenarios.likely+'</strong> poena ('+(scenarios.likelyDiff>0?'+':'')+scenarios.likelyDiff+' prema granici)</span><span>Dobar učinak: <strong>'+scenarios.good+'</strong> poena ('+(scenarios.goodDiff>0?'+':'')+scenarios.goodDiff+')</span><span>Odlična večer: <strong>'+scenarios.excellent+'</strong> poena ('+(scenarios.excellentDiff>0?'+':'')+scenarios.excellentDiff+')</span><span>Gornji scenarij: <strong>'+scenarios.upper+'</strong> poena ('+(scenarios.upperDiff>0?'+':'')+scenarios.upperDiff+')</span><span>Simulacija: <strong>'+scenarios.overPct+'%</strong> iznad · <strong>'+scenarios.underPct+'%</strong> ispod granice</span><small>Razlike su izračunate iz simuliranih rezultata prema Premier granici; nisu unaprijed zadane. '+(scenarios.games?'Temeljeno na '+scenarios.games+' zadnjih utakmica i varijaciji učinka.':'Nema dovoljno utakmica; korišten širi statistički raspon.')+'</small></div><small class="confidence '+confidenceClass+'" title="'+confidenceReason+'">Pouzdanost: '+confidence+'</small>';
  const diff=projection-p.line;
  if(scenarios.overPct>=55){
   signal.className='premier-signal premier-over';

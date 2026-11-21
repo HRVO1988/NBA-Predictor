@@ -1032,12 +1032,12 @@ async function calculatePremierPredictions(){
    }
    try{await premierEstimateExtraStats(player)}catch(e){const el=document.getElementById('premier-extra-'+i);if(el)el.innerHTML='Skokovi: nema podataka · Asistencije: nema podataka<small> · '+esc(e&&e.message?e.message:'ESPN izvor nije dostupan')+'</small>';}
    done++;
-   if(progress)progress.textContent='Obrađeno '+done+' / '+PREMIER_PLAYERS.length+' · uspješno '+ok+' · bez podataka '+failed;
+   if(progress)progress.textContent='Obrađeno '+done+' / '+PREMIER_PLAYERS.length+' · ukupno s prikazanom procjenom '+ok+' · bez procjene '+failed;
   }
  });
  await Promise.all(workers);
- if(progress)progress.textContent='Obrađeno svih '+PREMIER_PLAYERS.length+': '+ok+' statističkih procjena · '+failed+' bez dovoljno dostupnih podataka (bez izmišljanja broja).'
- // Nakon završetka izračuna prikaži svih 90 igrača, od najveće pozitivne do najniže negativne razlike.
+ if(progress)progress.textContent='Obrađeno svih '+PREMIER_PLAYERS.length+': '+(ok-fallbackCount)+' statističkih procjena · '+fallbackCount+' orijentacijskih procjena s niskom pouzdanošću · '+failed+' bez procjene.'
+ // Nakon završetka izračuna prikaži sve unesene igrače, sortirane po razlici.
  renderPremierOffer();
  if(btn)btn.disabled=false;
  renderPredictionHistory();

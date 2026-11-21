@@ -599,7 +599,7 @@ function premierRenderProjection(p,projection,sd,minutes,injury,gameCount,recent
  const diff=projection-p.line;
  if(diff>0.5){signal.className='premier-signal premier-over';signal.textContent='2 · VIŠE +'+diff.toFixed(1)}
  else if(diff< -0.5){signal.className='premier-signal premier-under';signal.textContent='1 · MANJE '+diff.toFixed(1)}
- else{signal.className='premier-signal premier-neutral';signal.textContent='Bez jasne razlike'}
+ else{signal.className='premier-signal premier-neutral';signal.textContent='BLIZU GRANICE · '+(diff>0?'+':'')+diff.toFixed(1)+' poena'}
  if(injury&&isUnavailable(injury)){signal.className='premier-signal premier-under';signal.textContent='OUT · ne igrati';}
  else if(injury&&isQuestionable(injury)){signal.textContent+=' · UPITAN';}
 }

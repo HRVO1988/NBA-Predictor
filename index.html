@@ -24,7 +24,7 @@
 <button onclick="show('games',this)">Utakmice</button>
 <button onclick="show('players',this)">Igrači</button>
 
-<button onclick="show('premier',this)">Premier poeni</button><button onclick="show('rebounds',this)">Skokovi</button><button onclick="show('assists',this)">Asistencije</button>
+<button onclick="show('premier',this)">Premier poeni</button>
 
 <button onclick="show('euroleague',this)">🇪🇺 Euroliga</button>
 
@@ -46,21 +46,6 @@
 </section>
 
 <section id="premier" class="section"><h2>📋 Premier poeni — ponuda Premier kladionice</h2><p class="muted">Unesene su granice iz aktualne Premier ponude. Prednost imaju zadnje utakmice i aktualna sezonska statistika; ako je uzorak malen, pouzdanost je niska. Granica Premier služi samo za usporedbu, ne kao zamjena za statističku prognozu. 1 = MANJE (1,85), 2 = VIŠE (1,85).</p><button class="action" id="premierRun" onclick="calculatePremierPredictions()">Izračunaj / osvježi dostupne predikcije</button><p class="muted" id="premierProgress">Predikcije će se učitati iz aktualne sezone.</p><input id="premierSearch" placeholder="Pretraži igrača ili momčad…" oninput="renderPremierOffer()"><div id="premierOfferList"></div><p class="muted">Model: 65% prosjeka zadnjih 5 + 35% zadnjih 10, uz korekciju trenda minutaže. Ozljede se označavaju kad ih ESPN feed prepozna. Ovo nije garancija ishoda. Premierove nove kvote ne mogu se automatski dohvatiti dok Premier ne omogući dostupan javni feed.</p></section>
-<section id="rebounds" class="section">
-<h2>🏀 Skokovi — Premier ponuda</h2>
-<p class="muted">Moja samostalna procjena za večerašnju utakmicu. Brojevi nisu prepisani iz sezonskog prosjeka niti se računaju iz Premierove granice. Model uzima u obzir ulogu igrača, očekivane minute, poziciju i matchup; procjena je informativna.</p>
-<button class="action" type="button" onclick="renderReboundPredictions()">Osvježi procjene</button>
-<input id="reboundSearch" placeholder="Pretraži igrača ili momčad…" oninput="renderReboundPredictions()">
-<div id="reboundOfferList"></div>
-</section>
-<section id="assists" class="section">
-<h2>🎯 Asistencije — simulacija utakmice</h2>
-<p class="muted">Neovisna procjena aplikacije. Za svakog igrača simulira se 10 mogućih utakmica prema očekivanoj minutaži, ulozi u kreiranju igre i varijabilnosti učinka. Premierova granica služi samo za usporedbu, ne za računanje procjene.</p>
-<button class="action" type="button" onclick="renderAssistPredictions()">Ponovi 10 simulacija</button>
-<input id="assistSearch" placeholder="Pretraži igrača ili momčad…" oninput="renderAssistPredictions()">
-<div id="assistOfferList"></div>
-</section>
-
 <section id="euroleague" class="section">
 <h2>🇪🇺 Euroliga 2026./27.</h2>
 <p class="muted">Odvojena Euroliga sekcija. NBA podaci i NBA predikcije ostaju nepromijenjeni.</p>

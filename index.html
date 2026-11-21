@@ -435,7 +435,7 @@ function renderReboundPredictions(){
   if(!Number.isFinite(p[4])&&!Number.isFinite(fallback))return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+'</small></div><div class="premier-est">Nema dostupne procjene</div></div>';
   if(!Number.isFinite(p[4]))p[4]=fallback;
   const sim=reboundSimulations(p),projection=Math.round(sim.avg);
-  return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+' · '+p[5].toFixed(0)+' min'+(injury&&isQuestionable(injury)?' · UPITAN':'')+'</small></div><div class="premier-est">Realna procjena: <b>'+projection+' skokova</b></div><small style="grid-column:1/-1;color:#aab4c5">Simulacija: '+sim.vals.join(' · ')+' · modelirani prosjek '+p[4].toFixed(1)+injuryBadge(p[2])+'</small></div>';
+  return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+' · '+p[5].toFixed(0)+' min'+(injury&&isQuestionable(injury)?' · UPITAN':'')+'</small></div><div class="premier-est">Realna procjena: <b>'+projection+' skokova</b></div><small style="grid-column:1/-1;color:#aab4c5">50.000 simulacija · prosjek modela '+sim.avg.toFixed(1)+injuryBadge(p[2])+'</small></div>';
  }).join('')+'</div>':'<div class="card">Nema igrača za traženi pojam.</div>';
 }
 renderReboundPredictions();
@@ -458,7 +458,7 @@ function renderAssistPredictions(){
   if(injury&&isUnavailable(injury))return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+'</small><small class="orange">OUT · '+esc(injuryStatusText(injury))+' · bez prognoze</small></div><div class="premier-est"><b class="orange">NE IGRA</b></div></div>';
   if(!Number.isFinite(p[4]))return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+'</small></div><div class="premier-est">Učitavam stvarne statistike…</div></div>';
   const sim=assistSimulations(p),projection=Math.round(sim.avg);
-  return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+' · '+p[5].toFixed(0)+' min'+(injury&&isQuestionable(injury)?' · UPITAN':'')+'</small></div><div class="premier-est">Realna procjena: <b>'+projection+' asistencija</b></div><small style="grid-column:1/-1;color:#aab4c5">Simulacija: '+sim.vals.join(' · ')+' · modelirani prosjek '+p[4].toFixed(1)+injuryBadge(p[2])+'</small></div>';
+  return '<div class="premier-row"><div><b>'+esc(p[0])+'</b><small>'+esc(p[2])+' · '+esc(p[1])+' · '+p[5].toFixed(0)+' min'+(injury&&isQuestionable(injury)?' · UPITAN':'')+'</small></div><div class="premier-est">Realna procjena: <b>'+projection+' asistencija</b></div><small style="grid-column:1/-1;color:#aab4c5">50.000 simulacija · prosjek modela '+sim.avg.toFixed(1)+injuryBadge(p[2])+'</small></div>';
  }).join('')+'</div>':'<div class="card">Nema igrača za traženi pojam.</div>';
 }
 renderAssistPredictions();

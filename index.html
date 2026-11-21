@@ -564,7 +564,7 @@ function renderPremierGrades(){
  });
 }
 function premierSetStatus(id,msg){premierStatusResults[id]=msg;const el=document.getElementById('premier-status-'+id);if(el)el.textContent=msg}
-function premierPointScenarios(name,projection,sd,recentValues,opponentName){
+function premierPointScenarios(name,projection,sd,recentValues,opponentName,line){
  const values=(Array.isArray(recentValues)?recentValues:[]).map(Number).filter(v=>Number.isFinite(v)&&v>=0).slice(0,10);
  const spread=Math.max(Number(sd)||0,projection*.17,2.5);
  let seed=2166136261;const key=String(name)+'|'+String(opponentName||'bez potvrđenog protivnika')+'|'+new Date().toISOString().slice(0,10);
@@ -574,18 +574,20 @@ function premierPointScenarios(name,projection,sd,recentValues,opponentName){
  for(let i=0;i<1200;i++){
   const u=Math.max(.0001,rand()),v=rand(),z=Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
   let value;
-  if(values.length>=3){const avg=values.reduce((a,b)=>a+b,0)/values.length;const base=values[Math.floor(rand()*values.length)];value=projection+(base-avg)*.55+z*spread*.62;}
+  if(values.length>=3){const avg=values.reduce((x,y)=>x+y,0)/values.length;const base=values[Math.floor(rand()*values.length)];value=projection+(base-avg)*.55+z*spread*.62;}
   else value=projection+z*spread;
   samples.push(Math.max(0,Math.round(value)));
  }
- samples.sort((a,b)=>a-b);
+ samples.sort((x,y)=>x-y);
  const q=p=>samples[Math.min(samples.length-1,Math.floor((samples.length-1)*p))];
- return {likely:q(.50),good:q(.75),excellent:q(.90),upper:q(.95),games:values.length};
+ const over=samples.filter(v=>v>Number(line)).length,under=samples.filter(v=>v<Number(line)).length;
+ const delta=v=>Number.isFinite(Number(line))?Number((v-Number(line)).toFixed(1)):null;
+ return {likely:q(.50),good:q(.75),excellent:q(.90),upper:q(.95),likelyDiff:delta(q(.50)),goodDiff:delta(q(.75)),excellentDiff:delta(q(.90)),upperDiff:delta(q(.95)),overPct:Math.round(over/12),underPct:Math.round(under/12),games:values.length};
 }
 function premierRenderProjection(p,projection,sd,minutes,injury,gameCount,recentValues,opponentName){
  injury=findInjuryForPlayer(p.full);
  const proj=document.getElementById('premier-proj-'+p.id),signal=document.getElementById('premier-signal-'+p.id);
- const scenarios=premierPointScenarios(p.full,projection,sd,recentValues,opponentName);
+ const scenarios=premierPointScenarios(p.full,projection,sd,recentValues,opponentName,p.line);
  premierProjectionResults[p.id]={projection,sd,minutes,injury,gameCount,recentValues,scenarios,opponentName};
  if(!proj||!signal)return;
  if(injury&&isUnavailable(injury)){proj.innerHTML='<b class="orange">OUT · nema procjene</b><small>Uklonjeno iz prognoze poena</small>';signal.className='premier-signal premier-under';signal.textContent='OUT · ne igrati';return;}
@@ -595,19 +597,17 @@ function premierRenderProjection(p,projection,sd,minutes,injury,gameCount,recent
  if(injury&&isQuestionable(injury)){confidence='NISKA';confidenceClass='low';confidenceReason='status igrača je upitan';}
  if(injury&&isUnavailable(injury)){confidence='NISKA';confidenceClass='low';confidenceReason='igrač je označen kao nedostupan';}
  premierProjectionResults[p.id].confidence=confidence;
- proj.innerHTML='<b>'+Math.round(projection)+' poena</b><small>procjena za utakmicu protiv '+(opponentName?esc(opponentName):'protivnik nije potvrđen')+' · analiza '+gameCount+' utak. · minutaža '+(Number.isFinite(Number(minutes))?Number(minutes).toFixed(1)+' min':'nije dostupna')+'</small><div class="point-scenarios"><b>SIMULACIJA 1.200 scenarija · '+(opponentName?'MATCHUP: '+esc(opponentName).toUpperCase():'BEZ MATCHUP PODATAKA')+'</b><span>Realno: <strong>'+scenarios.likely+'</strong> poena</span><span>Dobar učinak: <strong>'+scenarios.good+'</strong> poena</span><span>Odlična večer: <strong>'+scenarios.excellent+'</strong> poena</span><span>Gornji scenarij: <strong>'+scenarios.upper+'</strong> poena</span><small>Raspon je procjena, nije garancija. '+(scenarios.games?'Temeljeno na '+scenarios.games+' zadnjih utakmica i varijaciji učinka.':'Nema dovoljno utakmica; korišten širi statistički raspon.')+'</small></div><small class="confidence '+confidenceClass+'" title="'+confidenceReason+'">Pouzdanost: '+confidence+'</small>';
+ proj.innerHTML='<b>'+Math.round(projection)+' poena</b><small>procjena za utakmicu protiv '+(opponentName?esc(opponentName):'protivnik nije potvrđen')+' · analiza '+gameCount+' utak. · minutaža '+(Number.isFinite(Number(minutes))?Number(minutes).toFixed(1)+' min':'nije dostupna')+'</small><div class="point-scenarios"><b>SIMULACIJA 1.200 scenarija · '+(opponentName?'MATCHUP: '+esc(opponentName).toUpperCase():'BEZ MATCHUP PODATAKA')+'</b><span>Najrealnije: <strong>'+scenarios.likely+'</strong> poena ('+(scenarios.likelyDiff>0?'+':'')+scenarios.likelyDiff+' prema granici)</span><span>Dobar učinak: <strong>'+scenarios.good+'</strong> poena ('+(scenarios.goodDiff>0?'+':'')+scenarios.goodDiff+')</span><span>Odlična večer: <strong>'+scenarios.excellent+'</strong> poena ('+(scenarios.excellentDiff>0?'+':'')+scenarios.excellentDiff+')</span><span>Gornji scenarij: <strong>'+scenarios.upper+'</strong> poena ('+(scenarios.upperDiff>0?'+':'')+scenarios.upperDiff+')</span><span>Simulacija: <strong>'+scenarios.overPct+'%</strong> iznad · <strong>'+scenarios.underPct+'%</strong> ispod granice</span><small>Razlike su izračunate iz simuliranih rezultata prema Premier granici; nisu unaprijed zadane. '+(scenarios.games?'Temeljeno na '+scenarios.games+' zadnjih utakmica i varijaciji učinka.':'Nema dovoljno utakmica; korišten širi statistički raspon.')+'</small></div><small class="confidence '+confidenceClass+'" title="'+confidenceReason+'">Pouzdanost: '+confidence+'</small>';
  const diff=projection-p.line;
- const absDiff=Math.abs(diff);
- const strength=absDiff<1?'VRLO MALA':absDiff<3?'MALA':absDiff<6?'UMJERENA':absDiff<11?'JAKA':absDiff<=15?'VRLO JAKA':'EKSTREMNA · PROVJERITI PODATKE';
- if(diff>0.5){
+ if(scenarios.overPct>=55){
   signal.className='premier-signal premier-over';
-  signal.textContent='2 · VIŠE +'+diff.toFixed(1)+' · '+strength;
- }else if(diff< -0.5){
+  signal.textContent='2 · VIŠE '+(scenarios.likelyDiff>0?'+':'')+scenarios.likelyDiff+' · '+scenarios.overPct+'% simulacije';
+ }else if(scenarios.underPct>=55){
   signal.className='premier-signal premier-under';
-  signal.textContent='1 · MANJE '+diff.toFixed(1)+' · '+strength;
+  signal.textContent='1 · MANJE '+scenarios.likelyDiff+' · '+scenarios.underPct+'% simulacije';
  }else{
   signal.className='premier-signal premier-neutral';
-  signal.textContent='BLIZU GRANICE · '+(diff>0?'+':'')+diff.toFixed(1)+' poena';
+  signal.textContent='NEJASNO · '+scenarios.overPct+'% VIŠE / '+scenarios.underPct+'% MANJE';
  }
  if(injury&&isUnavailable(injury)){signal.className='premier-signal premier-under';signal.textContent='OUT · ne igrati';}
  else if(injury&&isQuestionable(injury)){signal.textContent+=' · UPITAN';}

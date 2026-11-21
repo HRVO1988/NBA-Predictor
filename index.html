@@ -597,9 +597,18 @@ function premierRenderProjection(p,projection,sd,minutes,injury,gameCount,recent
  premierProjectionResults[p.id].confidence=confidence;
  proj.innerHTML='<b>'+Math.round(projection)+' poena</b><small>procjena za utakmicu protiv '+(opponentName?esc(opponentName):'protivnik nije potvrđen')+' · analiza '+gameCount+' utak. · minutaža '+(Number.isFinite(Number(minutes))?Number(minutes).toFixed(1)+' min':'nije dostupna')+'</small><div class="point-scenarios"><b>SIMULACIJA 1.200 scenarija · '+(opponentName?'MATCHUP: '+esc(opponentName).toUpperCase():'BEZ MATCHUP PODATAKA')+'</b><span>Realno: <strong>'+scenarios.likely+'</strong> poena</span><span>Dobar učinak: <strong>'+scenarios.good+'</strong> poena</span><span>Odlična večer: <strong>'+scenarios.excellent+'</strong> poena</span><span>Gornji scenarij: <strong>'+scenarios.upper+'</strong> poena</span><small>Raspon je procjena, nije garancija. '+(scenarios.games?'Temeljeno na '+scenarios.games+' zadnjih utakmica i varijaciji učinka.':'Nema dovoljno utakmica; korišten širi statistički raspon.')+'</small></div><small class="confidence '+confidenceClass+'" title="'+confidenceReason+'">Pouzdanost: '+confidence+'</small>';
  const diff=projection-p.line;
- if(diff>0.5){signal.className='premier-signal premier-over';signal.textContent='2 · VIŠE +'+diff.toFixed(1)}
- else if(diff< -0.5){signal.className='premier-signal premier-under';signal.textContent='1 · MANJE '+diff.toFixed(1)}
- else{signal.className='premier-signal premier-neutral';signal.textContent='BLIZU GRANICE · '+(diff>0?'+':'')+diff.toFixed(1)+' poena'}
+ const absDiff=Math.abs(diff);
+ const strength=absDiff<1?'VRLO MALA':absDiff<3?'MALA':absDiff<6?'UMJERENA':absDiff<11?'JAKA':absDiff<=15?'VRLO JAKA':'EKSTREMNA · PROVJERITI PODATKE';
+ if(diff>0.5){
+  signal.className='premier-signal premier-over';
+  signal.textContent='2 · VIŠE +'+diff.toFixed(1)+' · '+strength;
+ }else if(diff< -0.5){
+  signal.className='premier-signal premier-under';
+  signal.textContent='1 · MANJE '+diff.toFixed(1)+' · '+strength;
+ }else{
+  signal.className='premier-signal premier-neutral';
+  signal.textContent='BLIZU GRANICE · '+(diff>0?'+':'')+diff.toFixed(1)+' poena';
+ }
  if(injury&&isUnavailable(injury)){signal.className='premier-signal premier-under';signal.textContent='OUT · ne igrati';}
  else if(injury&&isQuestionable(injury)){signal.textContent+=' · UPITAN';}
 }

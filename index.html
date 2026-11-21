@@ -776,15 +776,6 @@ async function loadPremierRoster(teamId){
  return premierRosterPromises[teamId];
 }
 async function premierGetOpponentFromSchedule(p){
- const aliases={
-  PHI:['PHI','PHILADELPHIA','PHILADELPHIA76ERS'],MIL:['MIL','MILWAUKEE','MILWAUKEEBUCKS'],
-  NY:['NY','NYK','NEWYORK','NEWYORKKNICKS'],NYK:['NY','NYK','NEWYORK','NEWYORKKNICKS'],
-  POR:['POR','PORTLAND','PORTLANDTRAILBLAZERS'],DAL:['DAL','DALLAS','DALLASMAVERICKS'],
-  MIN:['MIN','MINNESOTA','MINNESOTATIMBERWOLVES'],MEM:['MEM','MEMPHIS','MEMPHISGRIZZLIES'],
-  LAC:['LAC','LACLIPPERS','LOSANGELESCLIPPERS'],BOS:['BOS','BOSTON','BOSTONCELTICS'],
-  NOP:['NOP','NO','NEWORLEANS','NEWORLEANPELICANS'],SAC:['SAC','SACRAMENTO','SACRAMENTOKINGS'],
-  SAS:['SAS','SA','SANANTONIO','SANANTONIOSPURS']
- };
  const slate=[
   ['MIL','Milwaukee Bucks','PHI','Philadelphia 76ers'],
   ['POR','Portland Trail Blazers','NYK','New York Knicks'],
@@ -794,26 +785,22 @@ async function premierGetOpponentFromSchedule(p){
   ['BOS','Boston Celtics','SAC','Sacramento Kings']
  ];
  const raw=String(p?.team||'').toUpperCase().replace(/[^A-Z]/g,'');
- const wanted=aliases[raw]||[raw];
- let games=[];
- try{games=await loadPremierTonightGames()}catch(e){}
- for(const game of games){
-  const teams=game.teams||[];
-  const own=teams.find(t=>wanted.includes(String(t.abbr||'').toUpperCase().replace(/[^A-Z]/g,''))||wanted.includes(String(t.name||'').toUpperCase().replace(/[^A-Z]/g,'')));
-  if(own){
-   const opp=teams.find(t=>t!==own&&t.id!==own.id);
-   if(opp)return {game,own,opp};
-  }
- }
+ const code=premierOpponentCode(raw);
  for(const row of slate){
   const [a,an,b,bn]=row;
-  if([a,b].includes(raw)||wanted.includes(a)||wanted.includes(b)){
-   const ownIsA=a===raw||wanted.includes(a);
-   const own={abbr:ownIsA?a:b,name:ownIsA?an:bn,id:null};
-   const opp={abbr:ownIsA?b:a,name:ownIsA?bn:an,id:null};
-   return {game:{teams:[{abbr:a,name:an,id:null},{abbr:b,name:bn,id:null}],source:'službeni raspored 21.11.2026'},own,opp};
+  if(code===a||code===b){
+   const ownIsA=code===a;
+   return {game:{teams:[{abbr:a,name:an,id:null},{abbr:b,name:bn,id:null}],source:'raspored utakmica 21.11.2026'},own:{abbr:ownIsA?a:b,name:ownIsA?an:bn,id:null},opp:{abbr:ownIsA?b:a,name:ownIsA?bn:an,id:null}};
   }
  }
+ try{
+  const games=await loadPremierTonightGames();
+  for(const game of games){
+   const teams=game.teams||[];
+   const own=teams.find(t=>premierOpponentCode(t.abbr||t.name)===code);
+   if(own){const opp=teams.find(t=>t!==own);if(opp)return {game,own,opp};}
+  }
+ }catch(e){}
  return null;
 }
 async function premierGetMatchup(p){

@@ -775,6 +775,26 @@ async function loadPremierRoster(teamId){
  })().catch(e=>{delete premierRosterPromises[teamId];throw e});
  return premierRosterPromises[teamId];
 }
+async function premierGetOpponentFromSchedule(p){
+ const games=await loadPremierTonightGames();
+ const code=String(p?.team||'').toUpperCase().replace(/[^A-Z]/g,'');
+ const aliases={
+  PHI:['PHI','PHILADELPHIA','PHILADELPHIA76ERS'],MIL:['MIL','MILWAUKEE','MILWAUKEEBUCKS'],
+  NY:['NY','NYK','NEWYORK','NEWYORKKNICKS'],POR:['POR','PORTLAND','PORTLANDTRAILBLAZERS'],
+  DAL:['DAL','DALLAS','DALLASMAVERICKS'],MIN:['MIN','MINNESOTA','MINNESOTATIMBERWOLVES'],
+  MEM:['MEM','MEMPHIS','MEMPHISGRIZZLIES'],LAC:['LAC','LACLIPPERS','LOSANGELESCLIPPERS'],
+  BOS:['BOS','BOSTON','BOSTONCELTICS'],NOP:['NOP','NO','NEWORLEANS','NEWORLEANPELICANS'],
+  SAC:['SAC','SACRAMENTO','SACRAMENTOKINGS'],SAS:['SAS','SA','SANANTONIO','SANANTONIOSPURS']
+ };
+ const wanted=aliases[code]||[code];
+ for(const game of games){
+  const own=game.teams.find(t=>wanted.includes(String(t.abbr||'').toUpperCase().replace(/[^A-Z]/g,''))||wanted.includes(String(t.name||'').toUpperCase().replace(/[^A-Z]/g,'')));
+  if(!own)continue;
+  const opp=game.teams.find(t=>t.id!==own.id);
+  if(opp)return {game,own,opp};
+ }
+ return null;
+}
 async function premierGetMatchup(p){
  const games=await loadPremierTonightGames();
  const tonightTeams=games.flatMap(g=>g.teams.map(t=>({...t,game:g}))).filter(t=>t.id);
@@ -879,7 +899,8 @@ async function premierOneProjection(p){
  const injury=findInjuryForPlayer(p.full);
  const season=new Date().getFullYear()+(new Date().getMonth()>=9?1:0);
  let matchup=null,athlete=null,log=null,playerProfile=null,vals=[],mins=[],attempts=[],estimate=null,projectionSource='',usedPreviousSeason=false;
- // Ne blokiraj izračun na učitavanju svih večerašnjih rostera; protivnik se uzima iz rasporeda ako je dostupan.
+ // Raspored daje protivnika bez sporog pretraživanja rostera svih momčadi.
+ try{matchup=await premierGetOpponentFromSchedule(p)}catch(e){}
  try{athlete=await resolvePremierPlayer(p.full)}catch(e){} if(athlete){
   try{log=await getRecentGames(athlete.id,season);vals=extractRecentMetric(log,'points');mins=extractRecentMetric(log,'minutes');attempts=extractRecentMetric(log,'fga')}catch(e){}
   try{const stats=await getPlayerStats(athlete.id);playerProfile=buildPremierPlayerProfile(stats.data)}catch(e){}
@@ -974,7 +995,7 @@ async function premierOneProjection(p){
    estimate*=defenseFactor;
    projectionSource+=' · primljeni poeni protivnika '+oppContext.pointsAllowed.toFixed(1);
   }else{projectionSource+=' · obrambeni matchup nije dostupan';}
- }else{projectionSource+=' · protivnik nije potvrđen';}
+ }else if(matchup?.opp){projectionSource+=' · raspored: '+matchup.own.name+' – '+matchup.opp.name;}else{projectionSource+=' · protivnik nije potvrđen';}
  const unavailable=injuryData.filter(x=>isUnavailable(x)&&(!x.team||!matchup?.own?.name||premierNormalize(x.team)===premierNormalize(matchup.own.name)));
  const questionable=injuryData.filter(x=>isQuestionable(x)&&(!x.team||!matchup?.own?.name||premierNormalize(x.team)===premierNormalize(matchup.own.name)));
  if(unavailable.length)estimate*=1+Math.min(.06,unavailable.length*.012);

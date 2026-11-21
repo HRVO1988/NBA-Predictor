@@ -998,7 +998,7 @@ async function calculatePremierPredictions(){
  const btn=document.getElementById('premierRun'),progress=document.getElementById('premierProgress');
  if(btn)btn.disabled=true;
  renderPremierOffer();
- let nextIndex=0,done=0,ok=0,failed=0;premierAvailableIds=new Set();
+ let nextIndex=0,done=0,ok=0,failed=0,fallbackCount=0;premierAvailableIds=new Set();
  if(progress)progress.textContent='Obrađujem igrače… 0 / '+PREMIER_PLAYERS.length+'';
  const workers=Array.from({length:3},async()=>{
   while(true){
@@ -1028,7 +1028,7 @@ async function calculatePremierPredictions(){
     premierRenderProjection(player,fallbackProjection,fallbackSd,null,fallbackInjury,0,[],fallbackOpponent);
     premierSetStatus(i,'ORIJENTACIJSKA PROCJENA · polazna Premier granica '+player.line.toFixed(1)+' korigirana prema '+(fallbackPosition||'nepoznatoj poziciji')+' i obrani protivnika · '+fallbackDefense.label+' · niska pouzdanost · nije neovisna statistička prognoza. Statistički izvor nije vratio podatke.');
     if(fallbackInjury&&isUnavailable(fallbackInjury))premierSetStatus(i,'OUT · nema prognoze jer je igrač označen kao nedostupan.');
-    premierAvailableIds.add(i);ok++;
+    premierAvailableIds.add(i);ok++;fallbackCount++;
    }
    try{await premierEstimateExtraStats(player)}catch(e){const el=document.getElementById('premier-extra-'+i);if(el)el.innerHTML='Skokovi: nema podataka · Asistencije: nema podataka<small> · '+esc(e&&e.message?e.message:'ESPN izvor nije dostupan')+'</small>';}
    done++;

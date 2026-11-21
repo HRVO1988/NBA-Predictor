@@ -996,52 +996,69 @@ async function calculatePremierPredictions(){
  if(premierRunning)return;
  premierRunning=true;
  const btn=document.getElementById('premierRun'),progress=document.getElementById('premierProgress');
- if(btn)btn.disabled=true;
- renderPremierOffer();
- let nextIndex=0,done=0,ok=0,failed=0,fallbackCount=0;premierAvailableIds=new Set();
- if(progress)progress.textContent='Obrađujem igrače… 0 / '+PREMIER_PLAYERS.length+'';
- const workers=Array.from({length:3},async()=>{
-  while(true){
-   const i=nextIndex++;
-   if(i>=PREMIER_PLAYERS.length)return;
-   const p=PREMIER_PLAYERS[i];
-   premierSetStatus(i,'Tražim statističke podatke…');
-   const player={name:p[0],team:p[1],line:p[2],id:i,full:PREMIER_FULL_NAMES[i]};
-   try{
-    let lastError=null,completed=false;
-    for(let attempt=0;attempt<2&&!completed;attempt++){
-     try{await premierOneProjection(player);completed=true;}
-     catch(e){lastError=e;if(attempt===0)await new Promise(resolve=>setTimeout(resolve,900));}
+ if(btn){btn.disabled=true;btn.textContent='Računam predikcije…';}
+ let done=0,ok=0,failed=0,fallbackCount=0;
+ try{
+  renderPremierOffer();
+  let nextIndex=0;
+  premierAvailableIds=new Set();
+  if(progress)progress.textContent='Obrađujem igrače… 0 / '+PREMIER_PLAYERS.length;
+  const workers=Array.from({length:3},async()=>{
+   while(true){
+    const i=nextIndex++;
+    if(i>=PREMIER_PLAYERS.length)return;
+    const p=PREMIER_PLAYERS[i];
+    const player={name:p[0],team:p[1],line:p[2],id:i,full:PREMIER_FULL_NAMES[i]};
+    try{
+     premierSetStatus(i,'Tražim aktualne statistike…');
+     let lastError=null,completed=false;
+     for(let attempt=0;attempt<2&&!completed;attempt++){
+      try{await premierOneProjection(player);completed=true;}
+      catch(e){lastError=e;if(attempt===0)await new Promise(resolve=>setTimeout(resolve,500));}
+     }
+     if(!completed)throw lastError||Error('Statistički izvor nije dostupan');
+     premierAvailableIds.add(i);ok++;
+    }catch(e){
+     try{
+      const fallbackInjury=findInjuryForPlayer(player.full);
+      if(fallbackInjury&&isUnavailable(fallbackInjury)){
+       premierRenderProjection(player,0,0,null,fallbackInjury,0,[],'');
+       premierSetStatus(i,'OUT · nema prognoze jer je igrač označen kao nedostupan.');
+      }else{
+       let fallbackMatchup=null;
+       try{fallbackMatchup=await premierGetMatchup(player)}catch(ignore){}
+       const fallbackPosition=PREMIER_POSITION_BY_NAME[player.full]||null;
+       const fallbackDefense=premierPositionDefenseAdjustment(fallbackPosition,fallbackMatchup?.opp||null);
+       const fallbackProjection=Math.max(0,Math.round(player.line*fallbackDefense.factor));
+       const fallbackOpponent=fallbackMatchup?.opp?.name||'protivnik nije potvrđen';
+       const fallbackSd=Math.max(3,player.line*.22);
+       premierRenderProjection(player,fallbackProjection,fallbackSd,null,fallbackInjury,0,[],fallbackOpponent);
+       premierSetStatus(i,'ORIJENTACIJSKA PROCJENA '+fallbackProjection+' poena · izvedena iz Premier granice '+player.line.toFixed(1)+' · niska pouzdanost · nije neovisna statistička prognoza. Statistički podaci nisu dostupni.');
+       fallbackCount++;
+      }
+      premierAvailableIds.add(i);ok++;
+     }catch(renderError){
+      failed++;
+      const status=document.getElementById('premier-status-'+i);
+      if(status)status.textContent='NEMA PROCJENE · '+String(renderError.message||renderError);
+     }
+    }finally{
+     done++;
+     if(progress)progress.textContent='Obrađeno '+done+' / '+PREMIER_PLAYERS.length+' · prikazane procjene '+ok+' · orijentacijske '+fallbackCount+' · bez procjene '+failed;
     }
-    if(!completed)throw lastError||Error('Izračun nije uspio');
-    premierAvailableIds.add(i);ok++;
    }
-   catch(e){
-    // Transparentna tržišna orijentacija samo ako statistički izvori zakažu.
-    let fallbackMatchup=null;try{fallbackMatchup=await premierGetMatchup(player)}catch(ignore){}
-    const fallbackPosition=PREMIER_POSITION_BY_NAME[player.full]||null;
-    const fallbackDefense=premierPositionDefenseAdjustment(fallbackPosition,fallbackMatchup?.opp||null);
-    const fallbackProjection=Math.max(0,Math.round(player.line*fallbackDefense.factor));
-    const fallbackInjury=findInjuryForPlayer(player.full);
-    const fallbackOpponent=fallbackMatchup?.opp?.name||'protivnik nije potvrđen';
-    const fallbackSd=Math.max(3,player.line*.22);
-    premierRenderProjection(player,fallbackProjection,fallbackSd,null,fallbackInjury,0,[],fallbackOpponent);
-    premierSetStatus(i,'ORIJENTACIJSKA PROCJENA · polazna Premier granica '+player.line.toFixed(1)+' korigirana prema '+(fallbackPosition||'nepoznatoj poziciji')+' i obrani protivnika · '+fallbackDefense.label+' · niska pouzdanost · nije neovisna statistička prognoza. Statistički izvor nije vratio podatke.');
-    if(fallbackInjury&&isUnavailable(fallbackInjury))premierSetStatus(i,'OUT · nema prognoze jer je igrač označen kao nedostupan.');
-    premierAvailableIds.add(i);ok++;fallbackCount++;
-   }
-   try{await premierEstimateExtraStats(player)}catch(e){const el=document.getElementById('premier-extra-'+i);if(el)el.innerHTML='Skokovi: nema podataka · Asistencije: nema podataka<small> · '+esc(e&&e.message?e.message:'ESPN izvor nije dostupan')+'</small>';}
-   done++;
-   if(progress)progress.textContent='Obrađeno '+done+' / '+PREMIER_PLAYERS.length+' · ukupno s prikazanom procjenom '+ok+' · bez procjene '+failed;
-  }
- });
- await Promise.all(workers);
- if(progress)progress.textContent='Obrađeno svih '+PREMIER_PLAYERS.length+': '+(ok-fallbackCount)+' statističkih procjena · '+fallbackCount+' orijentacijskih procjena s niskom pouzdanošću · '+failed+' bez procjene.'
- // Nakon završetka izračuna prikaži sve unesene igrače, sortirane po razlici.
- renderPremierOffer();
- if(btn)btn.disabled=false;
- renderPredictionHistory();
- premierRunning=false;
+  });
+  await Promise.all(workers);
+  renderPremierOffer();
+  renderPredictionHistory();
+  if(progress)progress.textContent='Završeno: '+ok+' procjena prikazano · '+fallbackCount+' orijentacijskih s niskom pouzdanošću · '+failed+' bez procjene. Tržišna orijentacija nije neovisna statistička prognoza.';
+ }catch(e){
+  console.error('Premier prediction run failed',e);
+  if(progress)progress.textContent='Izračun je prekinut: '+String(e&&e.message?e.message:e)+'. Pokušaj ponovno.';
+ }finally{
+  premierRunning=false;
+  if(btn){btn.disabled=false;btn.textContent='Izračunaj / osvježi dostupne predikcije';}
+ }
  refreshPredictionHistory();
 }
 function compare(){const l=document.getElementById('line').value,e=document.getElementById('estimate').value,res=document.getElementById('comparison');if(l===''||e===''){res.innerHTML='<p class="orange">Unesi obje vrijednosti.</p>';return}const d=Number(e)-Number(l);res.innerHTML='<div class="card"><h3>Rezultat usporedbe</h3><p>Statistika: '+esc(document.getElementById('statType').value)+'</p><p>Razlika: <b class="'+(d>0?'green':d<0?'orange':'')+'">'+(d>0?'+':'')+d.toFixed(1)+'</b></p><p>'+(d>0?'Procjena je iznad granice.':d<0?'Procjena je ispod granice.':'Procjena je jednaka granici.')+'</p></div>'}
